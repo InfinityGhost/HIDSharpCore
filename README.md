@@ -1,2 +1,2 @@
 # HIDSharpCore
- .NET Core fork of Zer7's HIDSharp
+This is a fork of [Zer's HIDSharp](https://www.zer7.com/software/hidsharp). This fork of the library has been converted to .NET Core with a couple of bugfixes.
