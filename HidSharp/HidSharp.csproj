@@ -7,5 +7,12 @@
     <AssemblyName>HidSharpCore</AssemblyName>
     <RootNamespace>HidSharp</RootNamespace>
   </PropertyGroup>
+  
+  <PropertyGroup>
+    <PackageId>HidSharpCore</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>James F. Bellinger; InfinityGhost</Authors>
+    <Copyright>Copyright 2010-2019 James Bellinger</Copyright>
+  </PropertyGroup>
 
 </Project>
