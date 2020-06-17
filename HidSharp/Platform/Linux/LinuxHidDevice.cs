@@ -16,12 +16,17 @@
 #endregion
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Text;
+using System.Linq;
 using HidSharp.Exceptions;
 
 namespace HidSharp.Platform.Linux
 {
+    using static Libusb.NativeMethods;
+
     sealed class LinuxHidDevice : HidDevice
     {
         object _getInfoLock;
@@ -81,6 +86,7 @@ namespace HidSharp.Platform.Linux
                                             d._manufacturer = manufacturer;
                                             d._productName = productName;
                                             d._serialNumber = serialNumber;
+
                                             return d;
                                         }
                                     }
@@ -151,6 +157,86 @@ namespace HidSharp.Platform.Linux
         {
             RequiresGetInfo();
             return (byte[])_reportDescriptor.Clone();
+        }
+
+        public override string GetDeviceString(int index)
+        {
+            // IntPtr udev = NativeMethodsLibudev.Instance.udev_new();
+            // if (IntPtr.Zero != udev)
+            // {
+            //     try
+            //     {
+            //         IntPtr device = NativeMethodsLibudev.Instance.udev_device_new_from_syspath(udev, _path);
+            //         if (device != IntPtr.Zero)
+            //         {
+            //             try
+            //             {
+            //                 if (NativeMethodsLibudev.Instance.udev_device_get_devnode(device) != null)
+            //                 {
+            //                     IntPtr parent = NativeMethodsLibudev.Instance.udev_device_get_parent_with_subsystem_devtype(device, "usb", "usb_device");
+            //                     return GetUSBString(parent, index, 256);
+            //                 }
+            //                 else
+            //                 {
+            //                     return GetUSBString(device, index, 256);
+            //                 }
+            //             }
+            //             finally
+            //             {
+            //                 NativeMethodsLibudev.Instance.udev_device_unref(device);
+            //             }
+            //         }
+            //         else
+            //         {
+            //             return null;
+            //         }
+            //     }
+            //     finally
+            //     {
+            //         NativeMethodsLibudev.Instance.udev_unref(udev);
+            //     }
+            // }
+            // else
+            // {
+            //     return null;
+            // }
+            return GetUSBString(IntPtr.Zero, index, 256);
+        }
+
+        unsafe string GetUSBString(IntPtr dev, int index, int size)
+        {
+            byte[] buffer = new byte[size];
+            libusb_init(out IntPtr context);
+
+            var deviceCount = libusb_get_device_list(context, out IntPtr deviceListPtr);
+            var deviceList = new DeviceDescriptor[deviceCount];
+            for (int i = 0; i < deviceCount; i++)
+            {
+                var ptr = deviceListPtr + (i * sizeof(DeviceDescriptor));
+                var structure = Marshal.PtrToStructure<DeviceDescriptor>(ptr);
+                deviceList[i] = structure;
+            }
+
+            var matchingDescriptors = from descriptor in deviceList
+                where descriptor.idVendor == VendorID
+                where descriptor.idProduct == ProductID
+                select descriptor;
+            
+            var matchingDescriptor = matchingDescriptors.First();
+            
+            libusb_open(new IntPtr(&matchingDescriptor), out IntPtr devHandle);
+            
+            // var devHandle = Libusb.NativeMethods.libusb_open_device_with_vid_pid(context, (ushort)VendorID, (ushort)ProductID);
+            var error = libusb_get_string_descriptor(devHandle, DescriptorType.String, (byte)index, 0, buffer, (ushort)size);
+            libusb_close(devHandle);
+            
+            libusb_free_device_list(context, deviceListPtr);
+            libusb_exit(context);
+
+            var stringBuilder = new StringBuilder();
+            for (int i = 0; i < buffer.Length; i++)
+                stringBuilder.Append(buffer[i]);
+            return stringBuilder.ToString();
         }
 
         bool TryParseReportDescriptor(out Reports.ReportDescriptor parser, out byte[] reportDescriptor)

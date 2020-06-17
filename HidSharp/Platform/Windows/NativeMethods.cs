@@ -1051,6 +1051,10 @@ namespace HidSharp.Platform.Windows
 
         [DllImport("hid.dll", SetLastError = true, CharSet = CharSet.Auto)]
         [return: MarshalAs(UnmanagedType.U1)]
+        public static extern bool HidD_GetIndexedString(IntPtr handle, ulong stringIndex, byte* buffer, ulong bufferLength);
+
+        [DllImport("hid.dll", SetLastError = true, CharSet = CharSet.Auto)]
+        [return: MarshalAs(UnmanagedType.U1)]
         public static extern bool HidD_GetSerialNumberString(IntPtr handle, char[] buffer, int bufferLengthInBytes);
 
         [DllImport("hid.dll", CharSet = CharSet.Auto)]

@@ -120,10 +120,10 @@ namespace HidSharp.Platform.Libusb
 		public static extern void libusb_exit(IntPtr context);
 		
 		[DllImport(Libusb)]
-		public static extern IntPtr libusb_get_device_list(IntPtr context, out IntPtr list);
+		public static unsafe extern uint libusb_get_device_list(IntPtr context, out IntPtr list);
 		
 		[DllImport(Libusb)]
-		public static extern void libusb_free_device_list(IntPtr context, IntPtr list);
+		public static unsafe extern void libusb_free_device_list(IntPtr context, IntPtr list);
 		
 		[DllImport(Libusb)]
 		public static extern IntPtr libusb_ref_device(IntPtr device);
@@ -136,6 +136,9 @@ namespace HidSharp.Platform.Libusb
 		
 		[DllImport(Libusb)]
 		public static extern Error libusb_open(IntPtr device, out IntPtr deviceHandle);
+
+		[DllImport(Libusb)]
+		public static extern IntPtr libusb_open_device_with_vid_pid(IntPtr context, ushort idVendor, ushort idProduct);
 		
 		[DllImport(Libusb)]
 		public static extern void libusb_close(IntPtr deviceHandle);

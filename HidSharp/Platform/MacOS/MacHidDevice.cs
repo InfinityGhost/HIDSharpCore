@@ -172,6 +172,11 @@ namespace HidSharp.Platform.MacOS
             return (byte[])descriptor.Clone();
         }
 
+        public override string GetDeviceString(int index)
+        {
+            throw new NotSupportedException();
+        }
+
         public override bool HasImplementationDetail(Guid detail)
         {
             return base.HasImplementationDetail(detail) || detail == ImplementationDetail.MacOS;
