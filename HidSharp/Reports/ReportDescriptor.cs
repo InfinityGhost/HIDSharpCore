@@ -167,7 +167,7 @@ namespace HidSharp.Reports
                             break;
 
                         case GlobalItemTag.Pop:
-                            State.GlobalItemStateStack.RemoveAt(State.GlobalItemState.Count - 1);
+                            State.GlobalItemStateStack.RemoveAt(State.GlobalItemStateStack.Count - 1);
                             break;
 
                         default:
