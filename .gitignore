@@ -1,4 +1,4 @@
-*/bin
-*/obj
-*/nupkg
-.vscode
+*/bin/
+*/obj/
+*/nupkg/
+.vscode/
