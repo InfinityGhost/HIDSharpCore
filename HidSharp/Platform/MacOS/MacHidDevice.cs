@@ -209,7 +209,7 @@ namespace HidSharp.Platform.MacOS
                         if (devPtr != IntPtr.Zero)
                         {
                             usbdev = devPtr;
-                            request.bmRequestType = 128; //USBmakebmRequestType(kUSBIn, kUSBStandard, kUSBDevice);
+                            request.bmRequestType = 0; //USBmakebmRequestType(kUSBOut, kUSBStandard, kUSBDevice);
                             request.bRequest = 6; //kUSBRqGetDescriptor
                             request.wValue = 0;
                             request.wIndex = (ushort)index;
