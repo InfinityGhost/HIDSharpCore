@@ -371,11 +371,6 @@ namespace HidSharp.Platform.Windows
             return base.HasImplementationDetail(detail) || detail == ImplementationDetail.Windows;
         }
 
-        public override void Seize()
-        {
-            throw new NotImplementedException();
-        }
-
         public override string DevicePath
         {
             get { return _path; }

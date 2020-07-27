@@ -48,8 +48,6 @@ namespace HidSharp
             return GetProductName();
         }
 
-        public abstract void Seize();
-
         /// <summary>
         /// Returns the manufacturer name.
         /// </summary>

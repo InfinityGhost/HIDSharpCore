@@ -210,11 +210,6 @@ namespace HidSharp.Platform.Linux
             return base.HasImplementationDetail(detail) || detail == ImplementationDetail.Linux || detail == ImplementationDetail.HidrawApi;
         }
 
-        public override void Seize()
-        {
-            throw new NotImplementedException();
-        }
-
         public override string DevicePath
         {
             get { return _path; }

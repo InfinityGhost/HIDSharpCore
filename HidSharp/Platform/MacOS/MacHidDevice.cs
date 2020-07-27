@@ -20,7 +20,7 @@ using System.Reflection;
 
 namespace HidSharp.Platform.MacOS
 {
-    sealed class MacHidDevice : HidDevice
+    sealed class MacHidDevice : HidDevice, ISeizable
     {
         string _manufacturer;
         string _productName;
@@ -178,7 +178,7 @@ namespace HidSharp.Platform.MacOS
             return base.HasImplementationDetail(detail) || detail == ImplementationDetail.MacOS;
         }
 
-        public override void Seize()
+        public bool Seize()
         {
             HidStream stream = this.Open();
             var IODevice = (IntPtr)stream
@@ -189,10 +189,17 @@ namespace HidSharp.Platform.MacOS
             {
                 var result = NativeMethods.IOHIDDeviceClose(IODevice, NativeMethods.IOOptionBits.Seize);
                 if (result == 0)
+                {
                     result = NativeMethods.IOHIDDeviceOpen(IODevice, NativeMethods.IOOptionBits.Seize);
+                    if (result == 0)
+                        return true;
+                    else
+                        return false;
+                }
                 if (result != 0)
-                    throw DeviceException.CreateIOException(this, "Seize failed");
+                    return false;
             }
+            return false;
         }
 
         public override string DevicePath
