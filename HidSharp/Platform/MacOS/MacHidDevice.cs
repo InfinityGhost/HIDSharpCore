@@ -16,6 +16,7 @@
 #endregion
 
 using System;
+using System.Reflection;
 
 namespace HidSharp.Platform.MacOS
 {
@@ -175,6 +176,23 @@ namespace HidSharp.Platform.MacOS
         public override bool HasImplementationDetail(Guid detail)
         {
             return base.HasImplementationDetail(detail) || detail == ImplementationDetail.MacOS;
+        }
+
+        public override void Seize()
+        {
+            HidStream stream = this.Open();
+            var IODevice = (IntPtr)stream
+                .GetType()
+                .GetField("_handle", BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.GetField)
+                .GetValue(stream);
+            if (IODevice != IntPtr.Zero)
+            {
+                var result = NativeMethods.IOHIDDeviceClose(IODevice, NativeMethods.IOOptionBits.Seize);
+                if (result == 0)
+                    result = NativeMethods.IOHIDDeviceOpen(IODevice, NativeMethods.IOOptionBits.Seize);
+                if (result != 0)
+                    throw DeviceException.CreateIOException(this, "Seize failed");
+            }
         }
 
         public override string DevicePath
