@@ -117,11 +117,16 @@ namespace HidSharp.Platform.MacOS
         public static readonly IntPtr kIOHIDReportDescriptorKey = CFStringCreateWithCharacters("ReportDescriptor");
         public static readonly IntPtr kIOCalloutDeviceKey = CFStringCreateWithCharacters("IOCalloutDevice");
 
-        public static readonly IntPtr kIOCFPlugInInterfaceID = CFUUIDGetConstantUUIDWithBytes(IntPtr.Zero, 0xC2, 0x44,
-                                                                                              0xE8, 0x58, 0x10, 0x9C,
-                                                                                              0x11, 0xD4, 0x91, 0xD4,
-                                                                                              0x00, 0x50, 0xE4, 0xC6,
-                                                                                              0x42, 0x6F);
+        public static readonly IntPtr kIOCFPlugInInterfaceID = CFUUIDGetConstantUUIDWithBytes(IntPtr.Zero,
+                                                                                     0xC2, 0x44, 0xE8, 0x58,
+                                                                                     0x10, 0x9C, 0x11, 0xD4,
+                                                                                     0x91, 0xD4, 0x00, 0x50,
+                                                                                     0xE4, 0xC6, 0x42, 0x6F);
+
+        public static readonly Guid kIOCFPlugInInterfaceGUID = new Guid(new byte[] { 0xC2, 0x44, 0xE8, 0x58,
+                                                                                     0x10, 0x9C, 0x11, 0xD4,
+                                                                                     0x91, 0xD4, 0x00, 0x50,
+                                                                                     0xE4, 0xC6, 0x42, 0x6F });
 
         public static readonly IntPtr kIOUSBDeviceUserClientTypeID = CFUUIDGetConstantUUIDWithBytes(IntPtr.Zero, 0x9d,
                                                                                                     0xc7, 0xb7, 0x80,
@@ -135,6 +140,11 @@ namespace HidSharp.Platform.MacOS
                                                                                                0x11, 0xD4, 0x8b, 0x45,
                                                                                                0x00, 0x0a, 0x27, 0x05,
                                                                                                0x28, 0x61);
+
+        public static readonly Guid kIOUSBDeviceInterfaceGUID = new Guid(new byte[] { 0x5c, 0x81, 0x87, 0xd0,
+                                                                                      0x9e, 0xf3, 0x11, 0xD4,
+                                                                                      0x8b, 0x45, 0x00, 0x0a,
+                                                                                      0x27, 0x05, 0x28, 0x61 });
 
         public delegate void IOHIDCallback(IntPtr context, IOReturn result, IntPtr sender);
         public delegate void IOHIDDeviceCallback(IntPtr context, IOReturn result, IntPtr sender, IntPtr device);
@@ -437,7 +447,7 @@ namespace HidSharp.Platform.MacOS
         [DllImport(Foundation, EntryPoint = "CFUUIDGetUUIDBytes")]
         public extern static CFUUIDBytes CFUUIDGetUUIDBytes(CFUUIDRef uuid);
 
-        [DllImport(IOKit, EntryPoint = "IOCreatePluginInterfaceForService")]
+        [DllImport(IOKit, EntryPoint = "IOCreatePlugInInterfaceForService")]
         public extern static unsafe kern_return_t IOCreatePlugInInterfaceForService(io_service_t service, CFUUIDRef pluginType,
                                                                                     CFUUIDRef interfaceType, ref IntPtr theInterface, ref SInt32 theScore);
 
@@ -559,9 +569,6 @@ namespace HidSharp.Platform.MacOS
 
         [DllImport(IOKit, EntryPoint = "IOServiceMatching")] // name = IOHIDDevice
         public static extern IntPtr IOServiceMatching([MarshalAs(UnmanagedType.LPStr)] string name);
-
-        [DllImport(IOKit, EntryPoint = "QueryInterface")]
-        public static extern int QueryInterface(IntPtr a, IntPtr b, ref IntPtr c);
 
         [DllImport(libc, SetLastError = true, EntryPoint = "open")]
         public static extern int open(

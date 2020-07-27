@@ -16,6 +16,7 @@
 #endregion
 
 using System;
+using System.Runtime.InteropServices;
 using System.Text;
 
 namespace HidSharp.Platform.MacOS
@@ -203,8 +204,9 @@ namespace HidSharp.Platform.MacOS
                     if (iodev != null)
                     {
                         IntPtr devPtr = IntPtr.Zero;
+                        var deviceInterface = kIOUSBDeviceInterfaceGUID;
 
-                        QueryInterface(iodev, CFUUIDGetUUIDBytes(kIOUSBDeviceInterfaceID), ref devPtr);
+                        Marshal.QueryInterface(iodev, ref deviceInterface, out devPtr);
 
                         if (devPtr != IntPtr.Zero)
                         {
@@ -229,9 +231,9 @@ namespace HidSharp.Platform.MacOS
                     if (hidEntry != 0)
                         IOObjectRelease((int)deviceEntry);
                     if (usbdev != null)
-                        CFRelease(usbdev);
+                        Marshal.Release(usbdev);
                     if (iodev != null)
-                        CFRelease(iodev);
+                        Marshal.Release(iodev);
                 }
                 var stringBuilder = new StringBuilder();
                 for (int i = 0; i < buffer.Length; i++)
