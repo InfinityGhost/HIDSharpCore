@@ -22,12 +22,24 @@ using System.Text;
 
 namespace HidSharp.Platform.MacOS
 {
+    using io_service_t = UInt32;
+    using CFAllocatorRef = IntPtr;
+    using io_registry_entry_t = UInt32;
+    using kern_return_t = Int32;
+    using CFUUIDRef = IntPtr;
+    using CFUUIDBytes = IntPtr;
+    using io_name_t = String;
+    using SInt32 = Int32;
+    using UInt8 = Byte;
     static class NativeMethods
     {
         const string libc = "libc";
         const string CoreFoundation = "/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation";
         const string CoreServices = "/System/Library/Frameworks/CoreServices.framework/CoreServices";
+        const string Foundation = "/System/Library/Frameworks/Foundation.framework/Foundation";
         const string IOKit = "/System/Library/Frameworks/IOKit.framework/IOKit";
+
+        public const string kIO = "9DC7B780-9EC0-11D4-A54F-000A27052861";
 
         public enum error
         {
@@ -86,6 +98,8 @@ namespace HidSharp.Platform.MacOS
         static UIntPtr _IOC(uint inout, byte group, byte num, int len) { return (UIntPtr)(inout | (uint)len << 16 | (uint)group << 8 | (uint)num); }
         static UIntPtr _IO(byte group, byte num) { return _IOC(IOC_VOID, group, num, 0); }
 
+        public const string kIOServicePlane = "IOService";
+
         public static readonly IntPtr kCFRunLoopDefaultMode = CFStringCreateWithCharacters("kCFRunLoopDefaultMode");
         public static readonly IntPtr kIOFirstMatchNotification = CFStringCreateWithCharacters("IOServiceFirstMatch");
         public static readonly IntPtr kIOMatchedNotification = CFStringCreateWithCharacters("IOServiceMatched");
@@ -102,6 +116,25 @@ namespace HidSharp.Platform.MacOS
         public static readonly IntPtr kIOHIDMaxFeatureReportSizeKey = CFStringCreateWithCharacters("MaxFeatureReportSize");
         public static readonly IntPtr kIOHIDReportDescriptorKey = CFStringCreateWithCharacters("ReportDescriptor");
         public static readonly IntPtr kIOCalloutDeviceKey = CFStringCreateWithCharacters("IOCalloutDevice");
+
+        public static readonly IntPtr kIOCFPlugInInterfaceID = CFUUIDGetConstantUUIDWithBytes(IntPtr.Zero, 0xC2, 0x44,
+                                                                                              0xE8, 0x58, 0x10, 0x9C,
+                                                                                              0x11, 0xD4, 0x91, 0xD4,
+                                                                                              0x00, 0x50, 0xE4, 0xC6,
+                                                                                              0x42, 0x6F);
+
+        public static readonly IntPtr kIOUSBDeviceUserClientTypeID = CFUUIDGetConstantUUIDWithBytes(IntPtr.Zero, 0x9d,
+                                                                                                    0xc7, 0xb7, 0x80,
+                                                                                                    0x9e, 0xc0, 0x11,
+                                                                                                    0xD4, 0xa5, 0x4f,
+                                                                                                    0x00, 0x0a, 0x27,
+                                                                                                    0x05, 0x28, 0x61);
+
+        public static readonly IntPtr kIOUSBDeviceInterfaceID = CFUUIDGetConstantUUIDWithBytes(IntPtr.Zero, 0x5c, 0x81,
+                                                                                               0x87, 0xd0, 0x9e, 0xf3,
+                                                                                               0x11, 0xD4, 0x8b, 0x45,
+                                                                                               0x00, 0x0a, 0x27, 0x05,
+                                                                                               0x28, 0x61);
 
         public delegate void IOHIDCallback(IntPtr context, IOReturn result, IntPtr sender);
         public delegate void IOHIDDeviceCallback(IntPtr context, IOReturn result, IntPtr sender, IntPtr device);
@@ -211,6 +244,17 @@ namespace HidSharp.Platform.MacOS
             public fixed byte c_cc[20];
             public UIntPtr c_ispeed;
             public UIntPtr c_ospeed;
+        }
+
+        public struct IOUSBDevRequest
+        {
+            public byte bRequest;
+            public byte bmRequestType;
+            public byte[] pData;
+            public ushort wIndex;
+            public uint wLenDone;
+            public ushort wLength;
+            public ushort wValue;
         }
 
         public enum CFNumberType
@@ -383,6 +427,20 @@ namespace HidSharp.Platform.MacOS
         [DllImport(CoreFoundation, EntryPoint = "CFSetGetValues")]
         public static extern void CFSetGetValues(IntPtr set, IntPtr[] values);
 
+        [DllImport(Foundation)]
+        public static extern CFUUIDRef CFUUIDGetConstantUUIDWithBytes(CFAllocatorRef alloc, UInt8 byte0, UInt8 byte1,
+                                                                      UInt8 byte2, UInt8 byte3, UInt8 byte4, UInt8 byte5,
+                                                                      UInt8 byte6, UInt8 byte7, UInt8 byte8, UInt8 byte9,
+                                                                      UInt8 byte10, UInt8 byte11, UInt8 byte12,
+                                                                      UInt8 byte13, UInt8 byte14, UInt8 byte15);
+
+        [DllImport(Foundation, EntryPoint = "CFUUIDGetUUIDBytes")]
+        public extern static CFUUIDBytes CFUUIDGetUUIDBytes(CFUUIDRef uuid);
+
+        [DllImport(IOKit, EntryPoint = "IOCreatePluginInterfaceForService")]
+        public extern static unsafe kern_return_t IOCreatePlugInInterfaceForService(io_service_t service, CFUUIDRef pluginType,
+                                                                                    CFUUIDRef interfaceType, ref IntPtr theInterface, ref SInt32 theScore);
+
         [DllImport(IOKit, EntryPoint = "IOHIDDeviceCreate")]
         public static extern IntPtr IOHIDDeviceCreate(IntPtr allocator, int service);
 
@@ -456,6 +514,9 @@ namespace HidSharp.Platform.MacOS
         [DllImport(IOKit, EntryPoint = "IORegistryEntryCreateCFProperty")]
         public static extern IntPtr IORegistryEntryCreateCFProperty(int entry, IntPtr strKey, IntPtr allocator, IOOptionBits options = IOOptionBits.None);
 
+        [DllImport(IOKit, EntryPoint = "DeviceRequest")]
+        public static extern IOReturn DeviceRequest(IntPtr device, ref IOUSBDevRequest request);
+
         public static int? IORegistryEntryGetCFProperty_Int(int entry, IntPtr intKey)
         {
             using (var property = IORegistryEntryCreateCFProperty(entry, intKey, IntPtr.Zero).ToCFType())
@@ -486,6 +547,10 @@ namespace HidSharp.Platform.MacOS
         [DllImport(IOKit, EntryPoint = "IORegistryEntryGetPath")] // plane = IOService
         public static extern IOReturn IORegistryEntryGetPath(int entry, [MarshalAs(UnmanagedType.LPStr)] string plane, out io_string_t path);
 
+        [DllImport(IOKit, EntryPoint = "IORegistryEntryGetParentEntry")]
+        public extern static kern_return_t IORegistryEntryGetParentEntry(io_registry_entry_t entry,
+             [MarshalAs(UnmanagedType.LPStr)] io_name_t plane, ref io_registry_entry_t parent);
+
         [DllImport(IOKit, EntryPoint = "IOServiceAddMatchingNotification")]
         public static extern IOReturn IOServiceAddMatchingNotification(IntPtr notifyPort, IntPtr notifyType, IntPtr matching, IOServiceMatchingCallback callback, IntPtr context, out int iterator);
 
@@ -494,6 +559,9 @@ namespace HidSharp.Platform.MacOS
 
         [DllImport(IOKit, EntryPoint = "IOServiceMatching")] // name = IOHIDDevice
         public static extern IntPtr IOServiceMatching([MarshalAs(UnmanagedType.LPStr)] string name);
+
+        [DllImport(IOKit, EntryPoint = "QueryInterface")]
+        public static extern int QueryInterface(IntPtr a, IntPtr b, ref IntPtr c);
 
         [DllImport(libc, SetLastError = true, EntryPoint = "open")]
         public static extern int open(

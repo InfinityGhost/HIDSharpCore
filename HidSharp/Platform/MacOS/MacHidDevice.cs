@@ -16,9 +16,11 @@
 #endregion
 
 using System;
+using System.Text;
 
 namespace HidSharp.Platform.MacOS
 {
+    using static NativeMethods;
     sealed class MacHidDevice : HidDevice
     {
         string _manufacturer;
@@ -174,7 +176,68 @@ namespace HidSharp.Platform.MacOS
 
         public override string GetDeviceString(int index)
         {
-            throw new NotSupportedException();
+            unsafe
+            {
+                IOUSBDevRequest request;
+                uint hidEntry = (uint) IORegistryEntryFromPath(0, ref _path);
+                uint interfaceEntry = 0;
+                uint deviceEntry = 0;
+                IntPtr iodev = IntPtr.Zero;
+                IntPtr usbdev = IntPtr.Zero;
+                var buffer = new byte[256];
+                if (hidEntry != 0)
+                {
+                    IORegistryEntryGetParentEntry(hidEntry, kIOServicePlane, ref interfaceEntry);
+                    if (interfaceEntry != 0)
+                    {
+                        IORegistryEntryGetParentEntry(interfaceEntry, kIOServicePlane, ref deviceEntry);
+                    }
+                }
+                if (deviceEntry != 0)
+                {
+                    Int32 score = 0;
+
+                    IOCreatePlugInInterfaceForService(deviceEntry,
+                        kIOUSBDeviceUserClientTypeID, kIOCFPlugInInterfaceID,
+                        ref iodev, ref score);
+                    if (iodev != null)
+                    {
+                        IntPtr devPtr = IntPtr.Zero;
+
+                        QueryInterface(iodev, CFUUIDGetUUIDBytes(kIOUSBDeviceInterfaceID), ref devPtr);
+
+                        if (devPtr != IntPtr.Zero)
+                        {
+                            usbdev = devPtr;
+                            request.bmRequestType = 128; //USBmakebmRequestType(kUSBIn, kUSBStandard, kUSBDevice);
+                            request.bRequest = 6; //kUSBRqGetDescriptor
+                            request.wValue = 0;
+                            request.wIndex = (ushort)index;
+                            request.wLength = 0;
+                            request.pData = buffer;
+                            request.wLenDone = 0;
+                            var result = DeviceRequest(usbdev, ref request);
+                            if (result != 0)
+                                throw new Exception("Failed requesting string descriptor");
+                        }
+                    }
+
+                    if (hidEntry != 0)
+                        IOObjectRelease((int)hidEntry);
+                    if (hidEntry != 0)
+                        IOObjectRelease((int)interfaceEntry);
+                    if (hidEntry != 0)
+                        IOObjectRelease((int)deviceEntry);
+                    if (usbdev != null)
+                        CFRelease(usbdev);
+                    if (iodev != null)
+                        CFRelease(iodev);
+                }
+                var stringBuilder = new StringBuilder();
+                for (int i = 0; i < buffer.Length; i++)
+                    stringBuilder.Append(buffer[i]);
+                return stringBuilder.ToString();
+            }
         }
 
         public override bool HasImplementationDetail(Guid detail)
