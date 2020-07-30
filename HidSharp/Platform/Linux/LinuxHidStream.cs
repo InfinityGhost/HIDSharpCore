@@ -89,12 +89,15 @@ namespace HidSharp.Platform.Linux
 			throw new FileNotFoundException("HID class device not found.");
 		}
 		
-        internal void Init(string path)
+        internal void Init(string path, OpenConfiguration openConfig)
         {
 			int handle;
-            handle = DeviceHandleFromPath(path, Device, NativeMethods.oflag.RDWR | NativeMethods.oflag.NONBLOCK);
-			
-			_handle = handle;
+			if ((bool)openConfig.GetOption(OpenOption.DeviceExclusive))
+                handle = DeviceHandleFromPath(path, Device, NativeMethods.oflag.RDWR | NativeMethods.oflag.EXCL);
+			else
+                handle = DeviceHandleFromPath(path, Device, NativeMethods.oflag.RDWR | NativeMethods.oflag.NONBLOCK);
+				
+            _handle = handle;
 			HandleInitAndOpen();
 			
 			_readThread.Start();

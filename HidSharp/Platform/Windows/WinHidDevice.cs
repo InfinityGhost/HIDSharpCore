@@ -77,7 +77,7 @@ namespace HidSharp.Platform.Windows
             RequiresGetInfo(GetInfoFlags.ReportInfo);
 
             var stream = new WinHidStream(this);
-            try { stream.Init(_path); return stream; }
+            try { stream.Init(_path, openConfig); return stream; }
             catch { stream.Close(); throw; }
         }
 
