@@ -16,12 +16,81 @@
 #endregion
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace HidSharp.Platform.Libusb
 {
-	sealed class LibusbHidManager
-	{
-		// TODO
-	}
+    sealed class LibusbHidManager : HidManager
+    {
+        public override string FriendlyName => "Libusb HID";
+
+        public override bool IsSupported { get => true; }
+
+        protected override object[] GetBleDeviceKeys()
+        {
+            throw new NotImplementedException();
+        }
+
+        // TODO: cleanup
+        protected override object[] GetHidDeviceKeys()
+        {
+            NativeMethods.libusb_get_device_list(IntPtr.Zero, out IntPtr[] deviceList);
+            var list = new List<NativeMethods.CombinedEndpoint>();
+            foreach (var device in deviceList)
+            {
+                NativeMethods.libusb_get_config_descriptor(device, out var configDescriptor);
+                foreach (var iinterface in configDescriptor.interfaces)
+                {
+                    foreach (var iinterfaceSetting in iinterface.altsetting)
+                    {
+                        var endpointDict = new Dictionary<byte, NativeMethods.CombinedEndpoint>();
+                        foreach (var endpoint in iinterfaceSetting.endpoints)
+                        {
+                            var endpointAddress = (byte)(endpoint.bEndpointAddress & 0x0F);
+                            var endpointDirection = ((endpoint.bEndpointAddress & 0x80) >> 7) == 1;
+                            if (!endpointDict.ContainsKey(endpointAddress))
+                            {
+                                endpointDict.Add(endpointAddress, new NativeMethods.CombinedEndpoint(device, iinterfaceSetting.bInterfaceNumber, endpointAddress,
+                                    endpointDirection ? (UInt16)0 : endpoint.wMaxPacketSize,
+                                    endpointDirection ? endpoint.wMaxPacketSize : (UInt16)0));
+                            }
+                            else
+                            {
+                                endpointDict[endpointAddress].SetPacketSize(endpointDirection, endpoint.wMaxPacketSize);
+                            }
+                        }
+                        foreach (var endpoint in endpointDict.Values)
+                        {
+                            list.Add(endpoint);
+                        }
+                    }
+                }
+            }
+            NativeMethods.libusb_free_device_list(deviceList, 1);
+            return list.Cast<object>().ToArray();
+        }
+
+        protected override object[] GetSerialDeviceKeys()
+        {
+            throw new NotImplementedException();
+        }
+
+        protected override bool TryCreateBleDevice(object key, out Device device)
+        {
+            throw new NotImplementedException();
+        }
+
+        protected override bool TryCreateHidDevice(object key, out Device device)
+        {
+            device = LibusbHidDevice.TryCreate((NativeMethods.CombinedEndpoint)key);
+            return device != null;
+        }
+
+        protected override bool TryCreateSerialDevice(object key, out Device device)
+        {
+            throw new NotImplementedException();
+        }
+    }
 }
 
