@@ -18,6 +18,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
 
 namespace HidSharp.Platform.Libusb
 {
@@ -33,41 +34,57 @@ namespace HidSharp.Platform.Libusb
         }
 
         // TODO: cleanup
-        protected override object[] GetHidDeviceKeys()
+        protected override unsafe object[] GetHidDeviceKeys()
         {
-            NativeMethods.libusb_get_device_list(IntPtr.Zero, out IntPtr[] deviceList);
+            NativeMethods.libusb_init(IntPtr.Zero);
+
+            var count = NativeMethods.libusb_get_device_list(IntPtr.Zero, out IntPtr deviceListRaw);
+            IntPtr[] deviceList = new IntPtr[count];
+            Marshal.Copy(deviceListRaw, deviceList, 0, count);
+
             var list = new List<NativeMethods.CombinedEndpoint>();
+
             foreach (var device in deviceList)
             {
-                NativeMethods.libusb_get_config_descriptor(device, out var configDescriptor);
-                foreach (var iinterface in configDescriptor.interfaces)
+                NativeMethods.libusb_get_device_descriptor(device, out var deviceDescriptor);
+                byte configCount = deviceDescriptor.bNumConfigurations;
+                for (byte configIndex = 0; configIndex < configCount; configIndex++)
                 {
-                    foreach (var iinterfaceSetting in iinterface.altsetting)
+                    if (NativeMethods.libusb_get_config_descriptor(device, configIndex, out var configDescriptor) != NativeMethods.Error.None)
+                        continue;
+
+                    if (configDescriptor.bDescriptorType != (byte)NativeMethods.libusb_descriptor_type.LIBUSB_DT_CONFIG)
+                        continue;
+
+                    foreach (var iinterface in configDescriptor.interfaces)
                     {
-                        var endpointDict = new Dictionary<byte, NativeMethods.CombinedEndpoint>();
-                        foreach (var endpoint in iinterfaceSetting.endpoints)
+                        foreach (var iinterfaceSetting in iinterface.altsetting)
                         {
-                            var endpointAddress = (byte)(endpoint.bEndpointAddress & 0x0F);
-                            var endpointDirection = ((endpoint.bEndpointAddress & 0x80) >> 7) == 1;
-                            if (!endpointDict.ContainsKey(endpointAddress))
+                            var endpointDict = new Dictionary<byte, NativeMethods.CombinedEndpoint>();
+                            foreach (var endpoint in iinterfaceSetting.endpoints)
                             {
-                                endpointDict.Add(endpointAddress, new NativeMethods.CombinedEndpoint(device, iinterfaceSetting.bInterfaceNumber, endpointAddress,
-                                    endpointDirection ? (UInt16)0 : endpoint.wMaxPacketSize,
-                                    endpointDirection ? endpoint.wMaxPacketSize : (UInt16)0));
+                                var endpointAddress = (byte)(endpoint.bEndpointAddress & 0x0F);
+                                var endpointDirection = ((endpoint.bEndpointAddress & 0x80) >> 7) == 1;
+                                if (!endpointDict.ContainsKey(endpointAddress))
+                                {
+                                    endpointDict.Add(endpointAddress, new NativeMethods.CombinedEndpoint(device, iinterfaceSetting.bInterfaceNumber, endpointAddress,
+                                        endpointDirection ? (UInt16)0 : endpoint.wMaxPacketSize,
+                                        endpointDirection ? endpoint.wMaxPacketSize : (UInt16)0));
+                                }
+                                else
+                                {
+                                    endpointDict[endpointAddress].SetPacketSize(endpointDirection, endpoint.wMaxPacketSize);
+                                }
                             }
-                            else
+                            foreach (var endpoint in endpointDict.Values)
                             {
-                                endpointDict[endpointAddress].SetPacketSize(endpointDirection, endpoint.wMaxPacketSize);
+                                list.Add(endpoint);
                             }
-                        }
-                        foreach (var endpoint in endpointDict.Values)
-                        {
-                            list.Add(endpoint);
                         }
                     }
                 }
             }
-            NativeMethods.libusb_free_device_list(deviceList, 1);
+            NativeMethods.libusb_free_device_list(deviceListRaw, 1);
             return list.Cast<object>().ToArray();
         }
 

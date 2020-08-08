@@ -45,6 +45,23 @@ namespace HidSharp.Platform.Libusb
             Other = -99
         }
 
+        public enum libusb_descriptor_type
+        {
+            LIBUSB_DT_DEVICE = 0x01,
+            LIBUSB_DT_CONFIG = 0x02,
+            LIBUSB_DT_STRING = 0x03,
+            LIBUSB_DT_INTERFACE = 0x04,
+            LIBUSB_DT_ENDPOINT = 0x05,
+            LIBUSB_DT_BOS = 0x0f,
+            LIBUSB_DT_DEVICE_CAPABILITY = 0x10,
+            LIBUSB_DT_HID = 0x21,
+            LIBUSB_DT_REPORT = 0x22,
+            LIBUSB_DT_PHYSICAL = 0x23,
+            LIBUSB_DT_HUB = 0x29,
+            LIBUSB_DT_SUPERSPEED_HUB = 0x2a,
+            LIBUSB_DT_SS_ENDPOINT_COMPANION = 0x30
+        }
+
 		[StructLayout(LayoutKind.Sequential)]
 		public struct libusb_device_descriptor
 		{
@@ -104,7 +121,7 @@ namespace HidSharp.Platform.Libusb
         }
 
         [StructLayout(LayoutKind.Sequential)]
-        public unsafe struct libusb_config_descriptor
+        public struct libusb_config_descriptor
         {
             public byte bLength;
             public byte bDescriptorType;
@@ -144,16 +161,16 @@ namespace HidSharp.Platform.Libusb
         }
 		
 		[DllImport(Libusb)]
-		public static extern Error libusb_init(out IntPtr context);
+		public static extern Error libusb_init(IntPtr context);
 
         [DllImport(Libusb)]
         public static extern void libusb_exit(IntPtr context);
 
         [DllImport(Libusb)]
-        public static extern int libusb_get_device_list(IntPtr context, out IntPtr[] deviceList);
+        public static extern int libusb_get_device_list(IntPtr context, out IntPtr deviceList);
 
         [DllImport(Libusb)]
-        public static extern void libusb_free_device_list(IntPtr[] deviceList, int unref);
+        public static extern void libusb_free_device_list(IntPtr deviceList, int unref);
 
         [DllImport(Libusb)]
         public static extern Error libusb_open(IntPtr device, out IntPtr deviceHandle);
@@ -168,7 +185,7 @@ namespace HidSharp.Platform.Libusb
         public static extern int libusb_get_string_descriptor_ascii(IntPtr deviceHandle, byte index, StringBuilder data, int length);
 
         [DllImport(Libusb)]
-        public static extern Error libusb_get_config_descriptor(IntPtr deviceHandle, out libusb_config_descriptor configDescriptor);
+        public static unsafe extern Error libusb_get_config_descriptor(IntPtr device, byte configIndex, out libusb_config_descriptor configDescriptor);
 
         [DllImport(Libusb)]
         public static extern Error libusb_interrupt_transfer(IntPtr deviceHandle, byte endpoint, byte[] data, int length, ref int actual_length, uint timeout = 0);
