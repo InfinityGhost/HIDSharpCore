@@ -45,6 +45,11 @@ namespace HidSharp.Platform.Libusb
 
         public T libusb = new T();
 
+        public LibusbHidManager()
+        {
+            libusb.init(IntPtr.Zero);
+        }
+
         protected override object[] GetBleDeviceKeys()
         {
             throw new NotImplementedException();
