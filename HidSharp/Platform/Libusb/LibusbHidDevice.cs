@@ -1,9 +1,10 @@
 using System;
 using System.Text;
+using static HidSharp.Platform.Libusb.INativeMethods;
 
 namespace HidSharp.Platform.Libusb
 {
-    sealed class LibusbHidDevice : HidDevice
+    sealed class LibusbHidDevice<T> : HidDevice where T : INativeMethods, new()
     {
         public override int ProductID { get => _descriptor.idProduct; }
 
@@ -11,35 +12,32 @@ namespace HidSharp.Platform.Libusb
 
         public override int VendorID { get => _descriptor.idVendor; }
 
+        private T libusb = new T();
+
         // Unsupported by libusb
         public override string DevicePath {get => ""; }
 
-        private IntPtr _device;
+        private LibUsbDevice _dev;
         private IntPtr _deviceHandle;
-        private NativeMethods.libusb_device_descriptor _descriptor;
-        private byte _endpoint, _interfaceNum;
-        private int _maxOutputReportLength, _maxInputReportLength;
+        private libusb_device_descriptor _descriptor;
 
-        internal static LibusbHidDevice TryCreate(NativeMethods.CombinedEndpoint combinedEndpoint)
+        internal static LibusbHidDevice<T> TryCreate(LibUsbDevice device)
         {
-            var hid = new LibusbHidDevice { _device = combinedEndpoint.DevicePtr };
-            var err = NativeMethods.libusb_open(hid._device, out hid._deviceHandle);
+            T libusb = new T();
+            var hid = new LibusbHidDevice<T> { _dev = device };
+            var err = libusb.open(hid._dev.Device, out hid._deviceHandle);
             if (err > 0)
             {
                 return null;
             }
 
-            err = NativeMethods.libusb_get_device_descriptor(hid._device, out hid._descriptor);
+            err = libusb.get_device_descriptor(hid._dev.Device, out hid._descriptor);
             if (err > 0)
             {
-                NativeMethods.libusb_close(hid._device);
+                libusb.close(hid._dev.Device);
                 return null;
             }
 
-            hid._interfaceNum = combinedEndpoint.InterfaceNum;
-            hid._endpoint = combinedEndpoint.Address;
-            hid._maxInputReportLength = combinedEndpoint.MaxInputPacketSize;
-            hid._maxOutputReportLength = combinedEndpoint.MaxOutputPacketSize;
             return hid;
         }
 
@@ -51,7 +49,7 @@ namespace HidSharp.Platform.Libusb
         public override string GetManufacturer()
         {
             var manufacturer = new StringBuilder(256);
-            var err = NativeMethods.libusb_get_string_descriptor_ascii(_deviceHandle, _descriptor.iManufacturer, manufacturer, 256);
+            var err = libusb.get_string_descriptor_ascii(_deviceHandle, _descriptor.iManufacturer, manufacturer, 256);
             if (err < 0)
             {
                 throw DeviceException.CreateIOException(this, "Failed to read report descriptor.");
@@ -66,18 +64,18 @@ namespace HidSharp.Platform.Libusb
 
         public override int GetMaxInputReportLength()
         {
-            return _maxInputReportLength;
+            return (int)_dev.Endpoint.InputReportLength;
         }
 
         public override int GetMaxOutputReportLength()
         {
-            return _maxOutputReportLength;
+            return (int)_dev.Endpoint.OutputReportLength;
         }
 
         public override string GetProductName()
         {
             var product = new StringBuilder(256);
-            var err = NativeMethods.libusb_get_string_descriptor_ascii(_deviceHandle, _descriptor.iProduct, product, 256);
+            var err = libusb.get_string_descriptor_ascii(_deviceHandle, _descriptor.iProduct, product, 256);
             if (err < 0)
             {
                 throw DeviceException.CreateIOException(this, "Failed to read report descriptor.");
@@ -88,7 +86,7 @@ namespace HidSharp.Platform.Libusb
         public override string GetSerialNumber()
         {
             var serial = new StringBuilder(256);
-            var err = NativeMethods.libusb_get_string_descriptor_ascii(_deviceHandle, _descriptor.iSerialNumber, serial, 256);
+            var err = libusb.get_string_descriptor_ascii(_deviceHandle, _descriptor.iSerialNumber, serial, 256);
             if (err < 0)
             {
                 throw DeviceException.CreateIOException(this, "Failed to read report descriptor.");
@@ -98,8 +96,8 @@ namespace HidSharp.Platform.Libusb
 
         protected override DeviceStream OpenDeviceDirectly(OpenConfiguration openConfig)
         {
-            var stream = new LibusbHidStream(this);
-            try { stream.Init(_deviceHandle, _interfaceNum, _endpoint); return stream; }
+            var stream = new LibusbHidStream<T>(this);
+            try { stream.Init(_deviceHandle, (byte)_dev.Endpoint.Interface, (byte)_dev.Endpoint.Address); return stream; }
             catch { stream.Close(); throw; }
         }
     }
