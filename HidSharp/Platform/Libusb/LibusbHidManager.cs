@@ -25,29 +25,34 @@ namespace HidSharp.Platform.Libusb
 {
     sealed class LibusbHidManager<T> : HidManager where T : INativeMethods, new()
     {
+        private bool _isSupported;
+
+        private IntPtr _deviceListRaw;
+
+        private int _devCount;
+
         public override string FriendlyName => "Libusb HID";
 
-        public override bool IsSupported
-        {
-            get
-            {
-                try
-                {
-                    Marshal.PrelinkAll(typeof(T));
-                    return true;
-                }
-                catch
-                {
-                    return false;
-                }
-            }
-        }
+        public override bool IsSupported { get => _isSupported; }
 
         public T libusb = new T();
 
         public LibusbHidManager()
         {
-            libusb.init(IntPtr.Zero);
+            try
+            {
+                Marshal.PrelinkAll(typeof(T));
+                libusb.init(IntPtr.Zero);
+                _isSupported = true;
+            }
+            catch
+            {
+                _isSupported = false;
+            }
+
+            // Cache device list since this is slow
+            // TODO: Hotplug Events to update device list
+            _devCount = libusb.get_device_list(IntPtr.Zero, out _deviceListRaw);
         }
 
         protected override object[] GetBleDeviceKeys()
@@ -60,9 +65,8 @@ namespace HidSharp.Platform.Libusb
         {
             var devices = new List<LibUsbDevice>();
 
-            var devCount = libusb.get_device_list(IntPtr.Zero, out var deviceListRaw);
-            var deviceList = new IntPtr[devCount];
-            Marshal.Copy(deviceListRaw, deviceList, 0, devCount);
+            var deviceList = new IntPtr[_devCount];
+            Marshal.Copy(_deviceListRaw, deviceList, 0, _devCount);
 
             foreach (var device in deviceList)
             {
@@ -124,7 +128,6 @@ namespace HidSharp.Platform.Libusb
                 }
                 libusb.close(deviceHandle);
             }
-            libusb.free_device_list(deviceListRaw, 1);
             return devices.Cast<object>().ToArray();
         }
 

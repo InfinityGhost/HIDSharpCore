@@ -15,6 +15,7 @@
    under the License. */
 #endregion
 
+using System;
 using System.Threading;
 
 namespace HidSharp.Platform
@@ -22,21 +23,31 @@ namespace HidSharp.Platform
     sealed class HidSelector
     {
         public static readonly HidManager Instance;
-        static readonly Thread ManagerThread; 
+        static readonly Thread ManagerThread;
 
         static HidSelector()
         {
-            foreach (var hidManager in new HidManager[]
-                {
-                    new Libusb.LibusbHidManager<Libusb.WinNativeMethods>(),
-                    new Libusb.LibusbHidManager<Libusb.LinuxNativeMethods>(),
-                    new Libusb.LibusbHidManager<Libusb.MacOSNativeMethods>(),
-                    // new Windows.WinHidManager(),
-                    // new Linux.LinuxHidManager(),
-                    // new MacOS.MacHidManager(),
-                    new Unsupported.UnsupportedHidManager()
-                })
+            var hidManagerList = new Type[]
             {
+                    typeof(Libusb.LibusbHidManager<Libusb.WinNativeMethods>),
+                    typeof(Libusb.LibusbHidManager<Libusb.LinuxNativeMethods>),
+                    typeof(Libusb.LibusbHidManager<Libusb.MacOSNativeMethods>),
+                    typeof(Windows.WinHidManager),
+                    typeof(Linux.LinuxHidManager),
+                    typeof(MacOS.MacHidManager),
+                    typeof(Unsupported.UnsupportedHidManager)
+            };
+
+            foreach (var hidManagerType in hidManagerList)
+            {
+                HidManager hidManager;
+
+                try
+                {
+                    hidManager = (HidManager)Activator.CreateInstance(hidManagerType);
+                }
+                catch { continue; }
+
                 if (hidManager.IsSupported)
                 {
                     var readyEvent = new ManualResetEvent(false);
