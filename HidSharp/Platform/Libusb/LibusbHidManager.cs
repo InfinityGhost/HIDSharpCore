@@ -31,43 +31,12 @@ namespace HidSharp.Platform.Libusb
         {
             get
             {
-                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                try
                 {
-                    try
-                    {
-                        Marshal.PrelinkAll(typeof(WinNativeMethods));
-                        return true;
-                    }
-                    catch
-                    {
-                        return false;
-                    }
+                    Marshal.PrelinkAll(typeof(T));
+                    return true;
                 }
-                else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-                {
-                    try
-                    {
-                        Marshal.PrelinkAll(typeof(LinuxNativeMethods));
-                        return true;
-                    }
-                    catch
-                    {
-                        return false;
-                    }
-                }
-                else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-                {
-                    try
-                    {
-                        Marshal.PrelinkAll(typeof(MacOSNativeMethods));
-                        return true;
-                    }
-                    catch
-                    {
-                        return false;
-                    }
-                }
-                else
+                catch
                 {
                     return false;
                 }
