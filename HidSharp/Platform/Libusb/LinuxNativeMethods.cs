@@ -130,7 +130,7 @@ namespace HidSharp.Platform.Libusb
 
         public Error hotplug_register_callback(IntPtr ctx, HotplugEvent events, HotplugFlag flags, int vendorId, int productId, int devClass, libusb_hotplug_delegate callback, IntPtr userData, ref int callbackHandle)
         {
-            return hotplug_register_callback(ctx, events, flags, vendorId, productId, devClass, callback, userData, ref callbackHandle);
+            return libusb_hotplug_register_callback(ctx, events, flags, vendorId, productId, devClass, callback, userData, ref callbackHandle);
         }
 
         public void hotplug_deregister_callback(IntPtr ctx, int callbackHandle)
