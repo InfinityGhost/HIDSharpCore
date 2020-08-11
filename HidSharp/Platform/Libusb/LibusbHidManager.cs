@@ -53,19 +53,6 @@ namespace HidSharp.Platform.Libusb
             {
                 _isSupported = false;
             }
-
-            // Cache device list since this is slow
-            var _devCount = libusb.get_device_list(IntPtr.Zero, out var _deviceListRaw);
-            var deviceList = new IntPtr[_devCount];
-            Marshal.Copy(_deviceListRaw, deviceList, 0, _devCount);
-
-            foreach (var device in deviceList)
-            {
-                CreateDevice(device, _devices);
-            }
-            hotplugDelegate = new libusb_hotplug_delegate(HotPlug);
-
-            libusb.hotplug_register_callback(IntPtr.Zero, HotplugEvent.Arrived | HotplugEvent.Left, HotplugFlag.Enumerate, -1, -1, -1, hotplugDelegate, IntPtr.Zero, ref callbackHandle);
         }
 
         private int HotPlug(IntPtr ctx, IntPtr device, HotplugEvent hotplugEvent, IntPtr user_data)
@@ -157,6 +144,30 @@ namespace HidSharp.Platform.Libusb
             }
             libusb.close(deviceHandle);
             return;
+        }
+
+        protected override void Run(Action readyCallback)
+        {
+            // Cache device list since this is slow
+            var _devCount = libusb.get_device_list(IntPtr.Zero, out var _deviceListRaw);
+            var deviceList = new IntPtr[_devCount];
+            Marshal.Copy(_deviceListRaw, deviceList, 0, _devCount);
+            foreach (var device in deviceList)
+            {
+                CreateDevice(device, _devices);
+            }
+
+            hotplugDelegate = new libusb_hotplug_delegate(HotPlug);
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                readyCallback();
+            }
+            else
+            {
+                libusb.hotplug_register_callback(IntPtr.Zero, HotplugEvent.Arrived | HotplugEvent.Left, HotplugFlag.NoFlags, -1, -1, -1, hotplugDelegate, IntPtr.Zero, ref callbackHandle);
+                readyCallback();
+                GC.KeepAlive(hotplugDelegate);
+            }
         }
 
         protected override object[] GetBleDeviceKeys()
