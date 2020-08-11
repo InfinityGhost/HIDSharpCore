@@ -65,9 +65,7 @@ namespace HidSharp.Platform.Libusb
             }
             hotplugDelegate = new libusb_hotplug_delegate(HotPlug);
 
-            var ret = libusb.hotplug_register_callback(IntPtr.Zero, HotplugEvent.Arrived | HotplugEvent.Left, HotplugFlag.Enumerate, -1, -1, -1, hotplugDelegate, IntPtr.Zero, ref callbackHandle);
-            if (ret < 0)
-                throw new ExternalException("Failed to register for libusb hotplug. Reason: " + Enum.GetName(typeof(Error), ret));
+            libusb.hotplug_register_callback(IntPtr.Zero, HotplugEvent.Arrived | HotplugEvent.Left, HotplugFlag.Enumerate, -1, -1, -1, hotplugDelegate, IntPtr.Zero, ref callbackHandle);
         }
 
         private int HotPlug(IntPtr ctx, IntPtr device, HotplugEvent hotplugEvent, IntPtr user_data)
@@ -174,7 +172,7 @@ namespace HidSharp.Platform.Libusb
                 foreach (var device in deviceList)
                     list.Add(device);
 
-            return _devices.Values.Cast<object>().ToArray();
+            return list.Cast<object>().ToArray();
         }
 
         protected override object[] GetSerialDeviceKeys()

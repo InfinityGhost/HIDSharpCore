@@ -36,7 +36,7 @@ namespace HidSharp.Platform.Libusb
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
             {
                 var retD = libusb.detach_kernel_driver(deviceHandle, interfaceNum);
-                if (retD < 0)
+                if (retD < 0 && retD != Error.NotFound)
                 {
                     throw new IOException("Failed to detach device interface from kernel. Reason: " + Enum.GetName(typeof(Error), retD));
                 }
