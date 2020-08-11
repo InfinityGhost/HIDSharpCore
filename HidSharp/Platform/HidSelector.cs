@@ -15,7 +15,6 @@
    under the License. */
 #endregion
 
-using System;
 using System.Threading;
 
 namespace HidSharp.Platform
@@ -25,33 +24,33 @@ namespace HidSharp.Platform
         public static readonly HidManager Instance;
         static readonly Thread ManagerThread;
 
+        internal static T SafeCreate<T>() where T : class, new()
+        {
+            try
+            {
+                return new T();
+            }
+            catch { return null; }
+        }
+
         static HidSelector()
         {
-            var hidManagerList = new Type[]
+            var hidManagerList = new HidManager[]
             {
-                    typeof(Libusb.LibusbHidManager<Libusb.WinNativeMethods>),
-                    typeof(Libusb.LibusbHidManager<Libusb.LinuxNativeMethods>),
-                    typeof(Libusb.LibusbHidManager<Libusb.MacOSNativeMethods>),
-                    typeof(Windows.WinHidManager),
-                    typeof(Linux.LinuxHidManager),
-                    typeof(MacOS.MacHidManager),
-                    typeof(Unsupported.UnsupportedHidManager)
+                SafeCreate<Libusb.LibusbHidManager<Libusb.WinNativeMethods>>(),
+                SafeCreate<Libusb.LibusbHidManager<Libusb.LinuxNativeMethods>>(),
+                SafeCreate<Libusb.LibusbHidManager<Libusb.MacOSNativeMethods>>(),
+                SafeCreate<Windows.WinHidManager>(),
+                SafeCreate<Linux.LinuxHidManager>(),
+                SafeCreate<MacOS.MacHidManager>(),
+                SafeCreate<Unsupported.UnsupportedHidManager>()
             };
 
-            foreach (var hidManagerType in hidManagerList)
+            foreach (var hidManager in hidManagerList)
             {
-                HidManager hidManager;
-
-                try
-                {
-                    hidManager = (HidManager)Activator.CreateInstance(hidManagerType);
-                }
-                catch { continue; }
-
                 if (hidManager.IsSupported)
                 {
                     var readyEvent = new ManualResetEvent(false);
-
                     Instance = hidManager;
                     Instance.InitializeEventManager();
                     ManagerThread = new Thread(Instance.RunImpl) { IsBackground = true, Name = "HID Manager" };
