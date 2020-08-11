@@ -48,7 +48,7 @@ namespace HidSharp.Platform
 
             foreach (var hidManager in hidManagerList)
             {
-                if (hidManager.IsSupported)
+                if (hidManager != null && hidManager.IsSupported)
                 {
                     var readyEvent = new ManualResetEvent(false);
                     Instance = hidManager;

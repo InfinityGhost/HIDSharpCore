@@ -27,15 +27,19 @@ namespace HidSharp.Platform.Libusb
     {
         private bool _isSupported;
 
-        private IntPtr _deviceListRaw;
-
-        private int _devCount;
+        private Dictionary<IntPtr, List<LibUsbDevice>> _devices = new Dictionary<IntPtr, List<LibUsbDevice>>();
 
         public override string FriendlyName => "Libusb HID";
 
         public override bool IsSupported { get => _isSupported; }
 
-        public T libusb = new T();
+        private readonly T libusb = new T();
+
+        private static libusb_hotplug_delegate hotplugDelegate;
+
+        private int callbackHandle;
+
+        private object _deviceLock = new object();
 
         public LibusbHidManager()
         {
@@ -51,8 +55,110 @@ namespace HidSharp.Platform.Libusb
             }
 
             // Cache device list since this is slow
-            // TODO: Hotplug Events to update device list
-            _devCount = libusb.get_device_list(IntPtr.Zero, out _deviceListRaw);
+            var _devCount = libusb.get_device_list(IntPtr.Zero, out var _deviceListRaw);
+            var deviceList = new IntPtr[_devCount];
+            Marshal.Copy(_deviceListRaw, deviceList, 0, _devCount);
+
+            foreach (var device in deviceList)
+            {
+                CreateDevice(device, _devices);
+            }
+            hotplugDelegate = new libusb_hotplug_delegate(HotPlug);
+
+            var ret = libusb.hotplug_register_callback(IntPtr.Zero, HotplugEvent.Arrived | HotplugEvent.Left, HotplugFlag.Enumerate, -1, -1, -1, hotplugDelegate, IntPtr.Zero, ref callbackHandle);
+            if (ret < 0)
+                throw new ExternalException("Failed to register for libusb hotplug. Reason: " + Enum.GetName(typeof(Error), ret));
+        }
+
+        private int HotPlug(IntPtr ctx, IntPtr device, HotplugEvent hotplugEvent, IntPtr user_data)
+        {
+            switch (hotplugEvent)
+            {
+                case HotplugEvent.Arrived:
+                    lock(_deviceLock)
+                    {
+                        CreateDevice(device, _devices);
+                        DeviceList.Local.RaiseChanged();
+                    }
+                    break;
+                case HotplugEvent.Left:
+                    lock(_deviceLock)
+                    {
+                        _devices.Remove(device);
+                        DeviceList.Local.RaiseChanged();
+                    }
+                    break;
+            }
+            return 0;
+        }
+
+        internal unsafe void CreateDevice(IntPtr device, Dictionary<IntPtr, List<LibUsbDevice>> deviceList)
+        {
+            libusb.get_device_descriptor(device, out var deviceDescriptor);
+
+            if (libusb.open(device, out var deviceHandle) < 0)
+            {
+                // invalid, skip
+                return;
+            }
+
+            var configCount = deviceDescriptor.bNumConfigurations;
+
+            for (byte configIndex = 0; configIndex < configCount; configIndex++)
+            {
+                libusb.get_config_descriptor(device, configIndex, out var configDescriptorPtr);
+                libusb_config_descriptor configDescriptor;
+                configDescriptor = (libusb_config_descriptor)Marshal.PtrToStructure(configDescriptorPtr, typeof(libusb_config_descriptor));
+
+                for (int interfaceIndex = 0; interfaceIndex < configDescriptor.bNumInterfaces; interfaceIndex++)
+                {
+                    var myInterface = (libusb_interface)Marshal.PtrToStructure(configDescriptor.interfaces + sizeof(libusb_interface) * interfaceIndex, typeof(libusb_interface));
+
+                    for (int settingIndex = 0; settingIndex < myInterface.num_altsetting; settingIndex++)
+                    {
+                        var mySetting = (libusb_interface_descriptor)Marshal.PtrToStructure(myInterface.altsetting + sizeof(libusb_interface_descriptor) * settingIndex, typeof(libusb_interface_descriptor));
+                        var endpointDict = new Dictionary<int, Endpoint>();
+
+                        for (int endpointIndex = 0; endpointIndex < mySetting.bNumEndpoints; endpointIndex++)
+                        {
+                            var myEndpoint = (libusb_endpoint_descriptor)Marshal.PtrToStructure(mySetting.endpoints + sizeof(libusb_endpoint_descriptor) * endpointIndex, typeof(libusb_endpoint_descriptor));
+                            var direction = (myEndpoint.bEndpointAddress & (0x80)) == 0x80;
+                            var address = myEndpoint.bEndpointAddress & (0x0F);
+
+                            if (!endpointDict.ContainsKey(address))
+                            {
+                                endpointDict[address] = new Endpoint(interfaceIndex, address);
+                                endpointDict[address].SetReportLength(direction, myEndpoint.wMaxPacketSize);
+                            }
+                            else
+                            {
+                                endpointDict[address].SetReportLength(direction, myEndpoint.wMaxPacketSize);
+                            }
+                        }
+
+                        foreach (var endpoint in endpointDict.Values)
+                        {
+                            LibUsbDevice libusbdevice = new LibUsbDevice
+                            {
+                                Device = device,
+                                VendorID = deviceDescriptor.idVendor,
+                                ProductID = deviceDescriptor.idProduct,
+                                Endpoint = endpoint
+                            };
+                            lock(_deviceLock)
+                            {
+                                if (!deviceList.ContainsKey(device))
+                                {
+                                    deviceList.Add(device, new List<LibUsbDevice>());
+                                }
+                                deviceList[device].Add(libusbdevice);
+                            }
+                        }
+                    }
+                }
+            }
+            libusb.close(deviceHandle);
+            return;
         }
 
         protected override object[] GetBleDeviceKeys()
@@ -63,72 +169,12 @@ namespace HidSharp.Platform.Libusb
         // TODO: cleanup
         protected unsafe override object[] GetHidDeviceKeys()
         {
-            var devices = new List<LibUsbDevice>();
+            var list = new List<LibUsbDevice>();
+            foreach (var deviceList in _devices.Values)
+                foreach (var device in deviceList)
+                    list.Add(device);
 
-            var deviceList = new IntPtr[_devCount];
-            Marshal.Copy(_deviceListRaw, deviceList, 0, _devCount);
-
-            foreach (var device in deviceList)
-            {
-                libusb.get_device_descriptor(device, out var deviceDescriptor);
-
-                if (libusb.open(device, out var deviceHandle) < 0)
-                {
-                    // invalid, skip
-                    continue;
-                }
-
-                var configCount = deviceDescriptor.bNumConfigurations;
-
-                for (byte configIndex = 0; configIndex < configCount; configIndex++)
-                {
-                    libusb.get_config_descriptor(device, configIndex, out var configDescriptorPtr);
-                    libusb_config_descriptor configDescriptor;
-                    configDescriptor = (libusb_config_descriptor)Marshal.PtrToStructure(configDescriptorPtr, typeof(libusb_config_descriptor));
-
-                    for (int interfaceIndex = 0; interfaceIndex < configDescriptor.bNumInterfaces; interfaceIndex++)
-                    {
-                        var myInterface = (libusb_interface)Marshal.PtrToStructure(configDescriptor.interfaces + sizeof(libusb_interface) * interfaceIndex, typeof(libusb_interface));
-
-                        for (int settingIndex = 0; settingIndex < myInterface.num_altsetting; settingIndex++)
-                        {
-                            var mySetting = (libusb_interface_descriptor)Marshal.PtrToStructure(myInterface.altsetting + sizeof(libusb_interface_descriptor) * settingIndex, typeof(libusb_interface_descriptor));
-                            var endpointDict = new Dictionary<int, Endpoint>();
-
-                            for (int endpointIndex = 0; endpointIndex < mySetting.bNumEndpoints; endpointIndex++)
-                            {
-                                var myEndpoint = (libusb_endpoint_descriptor)Marshal.PtrToStructure(mySetting.endpoints + sizeof(libusb_endpoint_descriptor) * endpointIndex, typeof(libusb_endpoint_descriptor));
-                                var direction = (myEndpoint.bEndpointAddress & (0x80)) == 0x80;
-                                var address = myEndpoint.bEndpointAddress & (0x0F);
-
-                                if (!endpointDict.ContainsKey(address))
-                                {
-                                    endpointDict[address] = new Endpoint(interfaceIndex, address);
-                                    endpointDict[address].SetReportLength(direction, myEndpoint.wMaxPacketSize);
-                                }
-                                else
-                                {
-                                    endpointDict[address].SetReportLength(direction, myEndpoint.wMaxPacketSize);
-                                }
-                            }
-
-                            foreach (var endpoint in endpointDict.Values)
-                            {
-                                LibUsbDevice libusbdevice = new LibUsbDevice
-                                {
-                                    Device = device,
-                                    VendorID = deviceDescriptor.idVendor,
-                                    ProductID = deviceDescriptor.idProduct,
-                                    Endpoint = endpoint
-                                };
-                                devices.Add(libusbdevice);
-                            }
-                        }
-                    }
-                }
-                libusb.close(deviceHandle);
-            }
-            return devices.Cast<object>().ToArray();
+            return _devices.Values.Cast<object>().ToArray();
         }
 
         protected override object[] GetSerialDeviceKeys()

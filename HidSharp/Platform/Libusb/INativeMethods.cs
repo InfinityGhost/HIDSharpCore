@@ -75,6 +75,18 @@ namespace HidSharp.Platform.Libusb
             LIBUSB_DT_SS_ENDPOINT_COMPANION = 0x30
         }
 
+        public enum HotplugEvent
+        {
+            Arrived = 0x01,
+            Left = 0x02
+        }
+
+        public enum HotplugFlag
+        {
+            NoFlags,
+            Enumerate
+        }
+
         [StructLayout(LayoutKind.Sequential)]
         public struct libusb_device_descriptor
         {
@@ -153,6 +165,8 @@ namespace HidSharp.Platform.Libusb
             public int extra_length;
         }
 
+        public delegate int libusb_hotplug_delegate(IntPtr ctx, IntPtr device, HotplugEvent hotplugEvent, IntPtr user_data);
+
         public Error init(IntPtr context);
 
         public void exit(IntPtr context);
@@ -180,5 +194,9 @@ namespace HidSharp.Platform.Libusb
         public Error detach_kernel_driver(IntPtr deviceHandle, int interfaceNum);
 
         public Error attach_kernel_driver(IntPtr deviceHandle, int interfaceNum);
+
+        public Error hotplug_register_callback(IntPtr ctx, HotplugEvent events, HotplugFlag flags, int vendorId, int productId, int devClass, libusb_hotplug_delegate callback, IntPtr userData, ref int callbackHandle);
+
+        public void hotplug_deregister_callback(IntPtr ctx, int callbackHandle);
     }
 }
