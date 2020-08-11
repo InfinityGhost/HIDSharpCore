@@ -19,6 +19,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
+using HidSharp.Utility;
 using static HidSharp.Platform.Libusb.INativeMethods;
 
 namespace HidSharp.Platform.Libusb
@@ -27,7 +28,7 @@ namespace HidSharp.Platform.Libusb
     {
         private bool _isSupported;
 
-        private Dictionary<IntPtr, List<LibUsbDevice>> _devices = new Dictionary<IntPtr, List<LibUsbDevice>>();
+        private Dictionary<IntPtr, List<LibUsbDevice>> _devices;
 
         public override string FriendlyName => "Libusb HID";
 
@@ -146,9 +147,9 @@ namespace HidSharp.Platform.Libusb
             return;
         }
 
-        protected override void Run(Action readyCallback)
+        private void GenerateDeviceList()
         {
-            // Cache device list since this is slow
+            _devices = new Dictionary<IntPtr, List<LibUsbDevice>>();
             var _devCount = libusb.get_device_list(IntPtr.Zero, out var _deviceListRaw);
             var deviceList = new IntPtr[_devCount];
             Marshal.Copy(_deviceListRaw, deviceList, 0, _devCount);
@@ -156,11 +157,17 @@ namespace HidSharp.Platform.Libusb
             {
                 CreateDevice(device, _devices);
             }
+        }
+
+        protected override void Run(Action readyCallback)
+        {
+            // Cache device list since this is slow
+            GenerateDeviceList();
 
             hotplugDelegate = new libusb_hotplug_delegate(HotPlug);
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
-                readyCallback();
+                RunWindowsHotPlug(readyCallback);
             }
             else
             {
@@ -168,6 +175,85 @@ namespace HidSharp.Platform.Libusb
                 readyCallback();
                 GC.KeepAlive(hotplugDelegate);
             }
+        }
+
+        private void RunWindowsHotPlug(Action readyCallback)
+        {
+            const string className = "HidSharpDeviceMonitor";
+
+            Windows.NativeMethods.WindowProc windowProc = DeviceMonitorWindowProc;
+            var wc = new Windows.NativeMethods.WNDCLASS() { ClassName = className, WindowProc = windowProc };
+            RunAssert(0 != Windows.NativeMethods.RegisterClass(ref wc), "HidSharp RegisterClass failed.");
+
+            var hwnd = Windows.NativeMethods.CreateWindowEx(0, className, className, 0,
+                                                    Windows.NativeMethods.CW_USEDEFAULT, Windows.NativeMethods.CW_USEDEFAULT, Windows.NativeMethods.CW_USEDEFAULT, Windows.NativeMethods.CW_USEDEFAULT,
+                                                    Windows.NativeMethods.HWND_MESSAGE,
+                                                    IntPtr.Zero, IntPtr.Zero, IntPtr.Zero);
+            RunAssert(hwnd != IntPtr.Zero, "HidSharp CreateWindow failed.");
+
+            var hidNotifyHandle = RegisterDeviceNotification(hwnd, Windows.NativeMethods.HidD_GetHidGuid());
+
+            readyCallback();
+
+            while (true)
+            {
+                int result = Windows.NativeMethods.GetMessage(out Windows.NativeMethods.MSG msg, hwnd, 0, 0);
+                if (result == 0 || result == -1) { break; }
+
+                Windows.NativeMethods.TranslateMessage(ref msg);
+                Windows.NativeMethods.DispatchMessage(ref msg);
+            }
+
+            UnregisterDeviceNotification(hidNotifyHandle);
+            RunAssert(Windows.NativeMethods.DestroyWindow(hwnd), "HidSharp DestroyWindow failed.");
+            RunAssert(Windows.NativeMethods.UnregisterClass(className, IntPtr.Zero), "HidSharp UnregisterClass failed.");
+            GC.KeepAlive(windowProc);
+        }
+
+        private IntPtr RegisterDeviceNotification(IntPtr hwnd, Guid guid)
+        {
+            var notifyFilter = new Windows.NativeMethods.DEV_BROADCAST_DEVICEINTERFACE()
+            {
+                Size = Marshal.SizeOf(typeof(Windows.NativeMethods.DEV_BROADCAST_DEVICEINTERFACE)),
+                ClassGuid = guid,
+                DeviceType = Windows.NativeMethods.DBT_DEVTYP_DEVICEINTERFACE
+            };
+            var notifyHandle = Windows.NativeMethods.RegisterDeviceNotification(hwnd, ref notifyFilter, 0);
+            RunAssert(notifyHandle != IntPtr.Zero, "HidSharp RegisterDeviceNotification failed.");
+            return notifyHandle;
+        }
+
+        private void UnregisterDeviceNotification(IntPtr handle)
+        {
+            RunAssert(Windows.NativeMethods.UnregisterDeviceNotification(handle), "HidSharp UnregisterDeviceNotification failed.");
+        }
+
+        unsafe IntPtr DeviceMonitorWindowProc(IntPtr window, uint message, IntPtr wParam, IntPtr lParam)
+        {
+            if (message == Windows.NativeMethods.WM_DEVICECHANGE)
+            {
+                var ev = (Windows.NativeMethods.WM_DEVICECHANGE_wParam)(int)(long)wParam;
+                HidSharpDiagnostics.Trace("Received a device change event, {0}.", ev);
+
+                var eventArgs = (Windows.NativeMethods.DEV_BROADCAST_HDR*)(void*)lParam;
+
+                if (ev == Windows.NativeMethods.WM_DEVICECHANGE_wParam.DBT_DEVICEARRIVAL || ev == Windows.NativeMethods.WM_DEVICECHANGE_wParam.DBT_DEVICEREMOVECOMPLETE)
+                {
+                    if (eventArgs->DeviceType == Windows.NativeMethods.DBT_DEVTYP_DEVICEINTERFACE)
+                    {
+                        var diEventArgs = (Windows.NativeMethods.DEV_BROADCAST_DEVICEINTERFACE*)eventArgs;
+
+                        if (diEventArgs->ClassGuid == Windows.NativeMethods.HidD_GetHidGuid())
+                        {
+                            // We won't know what device is added or removed so regenerate
+                            GenerateDeviceList();
+                            DeviceList.Local.RaiseChanged();
+                        }
+                    }
+                }
+                return (IntPtr)1;
+            }
+            return Windows.NativeMethods.DefWindowProc(window, message, wParam, lParam);
         }
 
         protected override object[] GetBleDeviceKeys()
