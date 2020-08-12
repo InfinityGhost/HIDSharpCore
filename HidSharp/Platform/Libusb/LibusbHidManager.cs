@@ -36,7 +36,8 @@ namespace HidSharp.Platform.Libusb
 
         private readonly T libusb = new T();
 
-        private static libusb_hotplug_delegate hotplugDelegate;
+        private libusb_hotplug_delegate hotplugDelegate;
+        private GCHandle delegateHandle;
 
         private int callbackHandle;
 
@@ -162,6 +163,7 @@ namespace HidSharp.Platform.Libusb
         protected override void Run(Action readyCallback)
         {
             hotplugDelegate = new libusb_hotplug_delegate(HotPlug);
+            delegateHandle = GCHandle.Alloc(hotplugDelegate);
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
                 // Cache device list since this is slow
@@ -176,7 +178,6 @@ namespace HidSharp.Platform.Libusb
                 if (ret < 0)
                     throw new ExternalException("Unable to register for hotplug. Reason: " + Enum.GetName(typeof(Error), ret));
                 readyCallback();
-                GC.KeepAlive(hotplugDelegate);
             }
         }
 
