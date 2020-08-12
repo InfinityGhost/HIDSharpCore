@@ -161,17 +161,20 @@ namespace HidSharp.Platform.Libusb
 
         protected override void Run(Action readyCallback)
         {
-            // Cache device list since this is slow
-            GenerateDeviceList();
-
             hotplugDelegate = new libusb_hotplug_delegate(HotPlug);
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
+                // Cache device list since this is slow
+                GenerateDeviceList();
                 RunWindowsHotPlug(readyCallback);
             }
             else
             {
-                libusb.hotplug_register_callback(IntPtr.Zero, HotplugEvent.Arrived | HotplugEvent.Left, HotplugFlag.NoFlags, -1, -1, -1, hotplugDelegate, IntPtr.Zero, ref callbackHandle);
+                // Hotplug will enumerate every connected device for us upon registration
+                _devices = new Dictionary<IntPtr, List<LibUsbDevice>>();
+                var ret = libusb.hotplug_register_callback(IntPtr.Zero, HotplugEvent.Arrived | HotplugEvent.Left, HotplugFlag.Enumerate, -1, -1, -1, hotplugDelegate, IntPtr.Zero, ref callbackHandle);
+                if (ret < 0)
+                    throw new ExternalException("Unable to register for hotplug. Reason: " + Enum.GetName(typeof(Error), ret));
                 readyCallback();
                 GC.KeepAlive(hotplugDelegate);
             }

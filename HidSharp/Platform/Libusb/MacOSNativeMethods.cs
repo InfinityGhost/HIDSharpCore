@@ -53,6 +53,9 @@ namespace HidSharp.Platform.Libusb
         private static extern Error libusb_attach_kernel_driver(IntPtr deviceHandle, int interfaceNum);
 
         [DllImport(Libusb, CallingConvention = convention)]
+        private static extern Error libusb_set_auto_detach_kernel_driver(IntPtr deviceHandle, int enable);
+
+        [DllImport(Libusb, CallingConvention = convention)]
         private static extern Error libusb_hotplug_register_callback(IntPtr ctx, HotplugEvent events, HotplugFlag flags, int vendorId, int productId, int devClass, libusb_hotplug_delegate callback, IntPtr userData, ref int callbackHandle);
 
         [DllImport(Libusb, CallingConvention = convention)]
@@ -126,6 +129,11 @@ namespace HidSharp.Platform.Libusb
         public Error attach_kernel_driver(IntPtr deviceHandle, int interfaceNum)
         {
             return libusb_attach_kernel_driver(deviceHandle, interfaceNum);
+        }
+
+        public Error set_auto_detach_kernel_driver(IntPtr deviceHandle, int enable)
+        {
+            return libusb_set_auto_detach_kernel_driver(deviceHandle, enable);
         }
 
         public Error hotplug_register_callback(IntPtr ctx, HotplugEvent events, HotplugFlag flags, int vendorId, int productId, int devClass, libusb_hotplug_delegate callback, IntPtr userData, ref int callbackHandle)

@@ -21,11 +21,6 @@ namespace HidSharp.Platform.Libusb
         ~LibusbHidStream()
         {
             libusb.release_interface(_handle, _interfaceNum);
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-            {
-                // return device to kernel
-                libusb.attach_kernel_driver(_handle, _interfaceNum);
-            }
             libusb.close(_handle);
             Close();
         }
@@ -33,14 +28,7 @@ namespace HidSharp.Platform.Libusb
         // To follow HidSharp's structure and style
         internal void Init(IntPtr deviceHandle, byte interfaceNum, byte endpoint)
         {
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-            {
-                var retD = libusb.detach_kernel_driver(deviceHandle, interfaceNum);
-                if (retD < 0 && retD != Error.NotFound)
-                {
-                    throw new IOException("Failed to detach device interface from kernel. Reason: " + Enum.GetName(typeof(Error), retD));
-                }
-            }
+            libusb.set_auto_detach_kernel_driver(deviceHandle, 1);
 
             var retI = libusb.claim_interface(deviceHandle, interfaceNum);
             if (retI != Error.None)
@@ -108,10 +96,6 @@ namespace HidSharp.Platform.Libusb
         protected override void Dispose(bool disposing)
         {
             libusb.release_interface(_handle, _interfaceNum);
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-            {
-                libusb.attach_kernel_driver(_handle, _interfaceNum);
-            }
             libusb.close(_handle);
             base.Dispose(disposing);
         }
