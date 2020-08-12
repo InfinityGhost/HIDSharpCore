@@ -83,17 +83,13 @@ namespace HidSharp.Platform.Libusb
         {
             libusb.get_device_descriptor(device, out var deviceDescriptor);
 
-            if (libusb.open(device, out var deviceHandle) < 0)
-            {
-                // invalid, skip
-                return;
-            }
-
             var configCount = deviceDescriptor.bNumConfigurations;
 
             for (byte configIndex = 0; configIndex < configCount; configIndex++)
             {
-                libusb.get_config_descriptor(device, configIndex, out var configDescriptorPtr);
+                if (libusb.get_config_descriptor(device, configIndex, out var configDescriptorPtr) < 0)
+                    continue;
+                    
                 libusb_config_descriptor configDescriptor;
                 configDescriptor = (libusb_config_descriptor)Marshal.PtrToStructure(configDescriptorPtr, typeof(libusb_config_descriptor));
 
@@ -144,7 +140,6 @@ namespace HidSharp.Platform.Libusb
                     }
                 }
             }
-            libusb.close(deviceHandle);
             return;
         }
 
@@ -162,19 +157,20 @@ namespace HidSharp.Platform.Libusb
 
         protected override void Run(Action readyCallback)
         {
+            // Cache device list since this is slow
+            GenerateDeviceList();
             hotplugDelegate = new libusb_hotplug_delegate(HotPlug);
             delegateHandle = GCHandle.Alloc(hotplugDelegate);
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
-                // Cache device list since this is slow
-                GenerateDeviceList();
+
                 RunWindowsHotPlug(readyCallback);
             }
             else
             {
                 // Hotplug will enumerate every connected device for us upon registration
                 _devices = new Dictionary<IntPtr, List<LibUsbDevice>>();
-                var ret = libusb.hotplug_register_callback(IntPtr.Zero, HotplugEvent.Arrived | HotplugEvent.Left, HotplugFlag.Enumerate, -1, -1, -1, hotplugDelegate, IntPtr.Zero, ref callbackHandle);
+                var ret = libusb.hotplug_register_callback(IntPtr.Zero, HotplugEvent.Arrived | HotplugEvent.Left, HotplugFlag.NoFlags, -1, -1, -1, hotplugDelegate, IntPtr.Zero, ref callbackHandle);
                 if (ret < 0)
                     throw new ExternalException("Unable to register for hotplug. Reason: " + Enum.GetName(typeof(Error), ret));
                 readyCallback();
