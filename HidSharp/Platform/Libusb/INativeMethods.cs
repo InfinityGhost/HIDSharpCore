@@ -135,7 +135,7 @@ namespace HidSharp.Platform.Libusb
             public byte iInterface;
 
             /// <summary>libusb_endpoint_descriptor[]</summary>
-            public IntPtr endpoints;
+            public unsafe libusb_endpoint_descriptor* endpoints;
             public IntPtr extra;
             public int extra_length;
         }
@@ -144,7 +144,7 @@ namespace HidSharp.Platform.Libusb
         public struct libusb_interface
         {
             /// <summary>libusb_interface_descriptor[]</summary>
-            public IntPtr altsetting;
+            public unsafe libusb_interface_descriptor* altsetting;
             public int num_altsetting;
         }
 
@@ -160,7 +160,7 @@ namespace HidSharp.Platform.Libusb
             public byte bmAttributes;
             public byte MaxPower;
             /// <summary> libusb_interface[] </summary>
-            public IntPtr interfaces;
+            public unsafe libusb_interface* interfaces;
             public IntPtr extra;
             public int extra_length;
         }
@@ -183,7 +183,7 @@ namespace HidSharp.Platform.Libusb
 
         public int get_string_descriptor_ascii(IntPtr deviceHandle, byte index, StringBuilder data, int length);
 
-        public Error get_config_descriptor(IntPtr device, byte configIndex, out IntPtr configDescriptor);
+        public unsafe Error get_config_descriptor(IntPtr device, byte configIndex, out libusb_config_descriptor* configDescriptor);
 
         public Error interrupt_transfer(IntPtr deviceHandle, byte endpoint, byte[] data, int length, ref int actual_length, uint timeout = 0);
 
