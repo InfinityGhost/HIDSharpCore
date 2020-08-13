@@ -35,7 +35,7 @@ namespace HidSharp.Platform.Libusb
         private static extern int libusb_get_string_descriptor_ascii(IntPtr deviceHandle, byte index, StringBuilder data, int length);
 
         [DllImport(Libusb, CallingConvention = convention)]
-        private static unsafe extern Error libusb_get_config_descriptor(IntPtr device, byte configIndex, out IntPtr configDescriptor);
+        private static unsafe extern Error libusb_get_config_descriptor(IntPtr device, byte configIndex, out libusb_config_descriptor* configDescriptor);
 
         [DllImport(Libusb, CallingConvention = convention)]
         private static extern Error libusb_interrupt_transfer(IntPtr deviceHandle, byte endpoint, byte[] data, int length, ref int actual_length, uint timeout = 0);
@@ -101,7 +101,7 @@ namespace HidSharp.Platform.Libusb
             return libusb_get_string_descriptor_ascii(deviceHandle, index, data, length);
         }
 
-        public Error get_config_descriptor(IntPtr device, byte configIndex, out IntPtr configDescriptor)
+        public unsafe Error get_config_descriptor(IntPtr device, byte configIndex, out libusb_config_descriptor* configDescriptor)
         {
             return libusb_get_config_descriptor(device, configIndex, out configDescriptor);
         }

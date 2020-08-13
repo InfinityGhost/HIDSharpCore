@@ -47,7 +47,6 @@ namespace HidSharp.Platform.Libusb
         {
             try
             {
-                Marshal.PrelinkAll(typeof(T));
                 libusb.init(IntPtr.Zero);
                 _isSupported = true;
             }
@@ -90,21 +89,20 @@ namespace HidSharp.Platform.Libusb
                 if (libusb.get_config_descriptor(device, configIndex, out var configDescriptorPtr) < 0)
                     continue;
                     
-                libusb_config_descriptor configDescriptor;
-                configDescriptor = (libusb_config_descriptor)Marshal.PtrToStructure(configDescriptorPtr, typeof(libusb_config_descriptor));
+                libusb_config_descriptor configDescriptor = *configDescriptorPtr;
 
                 for (int interfaceIndex = 0; interfaceIndex < configDescriptor.bNumInterfaces; interfaceIndex++)
                 {
-                    var myInterface = (libusb_interface)Marshal.PtrToStructure(configDescriptor.interfaces + sizeof(libusb_interface) * interfaceIndex, typeof(libusb_interface));
+                    libusb_interface myInterface = configDescriptor.interfaces[interfaceIndex];
 
                     for (int settingIndex = 0; settingIndex < myInterface.num_altsetting; settingIndex++)
                     {
-                        var mySetting = (libusb_interface_descriptor)Marshal.PtrToStructure(myInterface.altsetting + sizeof(libusb_interface_descriptor) * settingIndex, typeof(libusb_interface_descriptor));
+                        var mySetting = myInterface.altsetting[settingIndex];
                         var endpointDict = new Dictionary<int, Endpoint>();
 
                         for (int endpointIndex = 0; endpointIndex < mySetting.bNumEndpoints; endpointIndex++)
                         {
-                            var myEndpoint = (libusb_endpoint_descriptor)Marshal.PtrToStructure(mySetting.endpoints + sizeof(libusb_endpoint_descriptor) * endpointIndex, typeof(libusb_endpoint_descriptor));
+                            var myEndpoint = mySetting.endpoints[endpointIndex];
                             var direction = (myEndpoint.bEndpointAddress & (0x80)) == 0x80;
                             var address = myEndpoint.bEndpointAddress & (0x0F);
 
