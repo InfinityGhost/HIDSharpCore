@@ -86,14 +86,12 @@ namespace HidSharp.Platform.Libusb
 
             for (byte configIndex = 0; configIndex < configCount; configIndex++)
             {
-                if (libusb.get_config_descriptor(device, configIndex, out var configDescriptorPtr) < 0)
+                if (libusb.get_config_descriptor(device, configIndex, out var configDescriptor) < 0)
                     continue;
-                    
-                libusb_config_descriptor configDescriptor = *configDescriptorPtr;
 
-                for (int interfaceIndex = 0; interfaceIndex < configDescriptor.bNumInterfaces; interfaceIndex++)
+                for (int interfaceIndex = 0; interfaceIndex < configDescriptor->bNumInterfaces; interfaceIndex++)
                 {
-                    libusb_interface myInterface = configDescriptor.interfaces[interfaceIndex];
+                    libusb_interface myInterface = configDescriptor->interfaces[interfaceIndex];
 
                     for (int settingIndex = 0; settingIndex < myInterface.num_altsetting; settingIndex++)
                     {
