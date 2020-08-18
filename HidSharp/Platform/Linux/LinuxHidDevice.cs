@@ -184,13 +184,15 @@ namespace HidSharp.Platform.Linux
                 buffer_length = sizeof(NativeMethods.control_setup_packet)
             };
 
+            int ret;
+
             // Retrieve physical address of hidraw device
             int hidrawHandle = NativeMethods.open(_path, NativeMethods.oflag.NONBLOCK);
             StringBuilder usbPath = new StringBuilder(256);
-            NativeMethods.ioctl(hidrawHandle, NativeMethods.HIDIOCGRAWPHYS(256), ref usbPath);
+            ret = NativeMethods.ioctl(hidrawHandle, NativeMethods.HIDIOCGRAWPHYS(256), usbPath);
 
             int usbHandle = NativeMethods.open(usbPath.ToString(), NativeMethods.oflag.NONBLOCK);
-            NativeMethods.ioctl(usbHandle, NativeMethods.USBFDSUBMITURB(255), &urb);
+            ret = NativeMethods.ioctl(usbHandle, NativeMethods.USBFDSUBMITURB(255), &urb);
 
             // Retrieve langId
             var buf = setup.buffer;

@@ -317,7 +317,7 @@ namespace HidSharp.Platform.Linux
         public static extern int ioctl(int filedes, UIntPtr command);
 
         [DllImport(libc, SetLastError = true)]
-        public static extern int ioctl(int filedes, UIntPtr command, ref StringBuilder value);
+        public static extern int ioctl(int filedes, UIntPtr command, StringBuilder value);
 
         [DllImport(libc, SetLastError = true)]
         public static extern unsafe int ioctl(int filedes, UIntPtr command, void* value);
