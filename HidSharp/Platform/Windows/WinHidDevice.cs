@@ -196,46 +196,21 @@ namespace HidSharp.Platform.Windows
             return (byte[])descriptor.Clone();
         }
 
-        public override unsafe string GetDeviceString(int index)
+        public override string GetDeviceString(int index)
         {
-            var buffer = new byte[256];
-            fixed (byte* ptrBuf = buffer)
+            string str;
+            StringBuilder deviceString = new StringBuilder(256);
+            var handle = NativeMethods.CreateFileFromDevice(_path, NativeMethods.EFileAccess.None, NativeMethods.EFileShare.Read | NativeMethods.EFileShare.Write);
+            if (handle != (IntPtr)(-1) && NativeMethods.HidD_GetIndexedString(handle, (ulong)index, deviceString, 256))
             {
-                var bytesRead = StringRequest(index, ptrBuf, 256);
-                if (bytesRead > 0)
-                {
-                    var sb = new StringBuilder(256);
-                    for (int i = 0; i < bytesRead; i += 2)
-                        sb.Append(buffer[i]);
-                    return sb.ToString();
-                }
-                else
-                    return null;
+                str = deviceString.ToString();
             }
-        }
-
-        private unsafe int StringRequest(int stringId, byte* buffer, int length)
-        {
-            int realLength = 0;
-            var handle = TryOpenToGetInfo((handle) => 
+            else
             {
-                if (NativeMethods.HidD_GetIndexedString(handle, (ulong)stringId, buffer, (ulong)length))
-                {
-                    realLength = length;
-                    for (int i = 0; i < length; i += 2)
-                    {
-                        if (buffer[i] == 0)
-                        {
-                            realLength = i;
-                            break;
-                        }
-                    }
-                    return true;
-                }
-                else
-                    return false;
-            });
-            return realLength;
+                str = null;
+            }
+            NativeMethods.CloseHandle(handle);
+            return str;
         }
 
         bool TryGetDeviceUsbRoot(out uint devInst)
