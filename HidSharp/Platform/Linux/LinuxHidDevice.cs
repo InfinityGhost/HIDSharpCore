@@ -159,84 +159,63 @@ namespace HidSharp.Platform.Linux
             return (byte[])_reportDescriptor.Clone();
         }
 
-        public override string GetDeviceString(int index)
+        public override unsafe string GetDeviceString(int index)
         {
-            // IntPtr udev = NativeMethodsLibudev.Instance.udev_new();
-            // if (IntPtr.Zero != udev)
-            // {
-            //     try
-            //     {
-            //         IntPtr device = NativeMethodsLibudev.Instance.udev_device_new_from_syspath(udev, _path);
-            //         if (device != IntPtr.Zero)
-            //         {
-            //             try
-            //             {
-            //                 if (NativeMethodsLibudev.Instance.udev_device_get_devnode(device) != null)
-            //                 {
-            //                     IntPtr parent = NativeMethodsLibudev.Instance.udev_device_get_parent_with_subsystem_devtype(device, "usb", "usb_device");
-            //                     return GetUSBString(parent, index, 256);
-            //                 }
-            //                 else
-            //                 {
-            //                     return GetUSBString(device, index, 256);
-            //                 }
-            //             }
-            //             finally
-            //             {
-            //                 NativeMethodsLibudev.Instance.udev_device_unref(device);
-            //             }
-            //         }
-            //         else
-            //         {
-            //             return null;
-            //         }
-            //     }
-            //     finally
-            //     {
-            //         NativeMethodsLibudev.Instance.udev_unref(udev);
-            //     }
-            // }
-            // else
-            // {
-            //     return null;
-            // }
-            return GetUSBString(IntPtr.Zero, index, 256);
-        }
-
-        unsafe string GetUSBString(IntPtr dev, int index, int size)
-        {
-            byte[] buffer = new byte[size];
-            libusb_init(out IntPtr context);
-
-            var deviceCount = libusb_get_device_list(context, out IntPtr deviceListPtr);
-            var deviceList = new DeviceDescriptor[deviceCount];
-            for (int i = 0; i < deviceCount; i++)
+            static ushort string_index(byte index)
             {
-                var ptr = deviceListPtr + (i * sizeof(DeviceDescriptor));
-                var structure = Marshal.PtrToStructure<DeviceDescriptor>(ptr);
-                deviceList[i] = structure;
+                return (ushort)((((byte)NativeMethods.DESCRIPTOR_TYPE.STRING) << 8) | index);
             }
 
-            var matchingDescriptors = from descriptor in deviceList
-                where descriptor.idVendor == VendorID
-                where descriptor.idProduct == ProductID
-                select descriptor;
-            
-            var matchingDescriptor = matchingDescriptors.First();
-            
-            libusb_open(new IntPtr(&matchingDescriptor), out IntPtr devHandle);
-            
-            // var devHandle = Libusb.NativeMethods.libusb_open_device_with_vid_pid(context, (ushort)VendorID, (ushort)ProductID);
-            var error = libusb_get_string_descriptor(devHandle, DescriptorType.String, (byte)index, 0, buffer, (ushort)size);
-            libusb_close(devHandle);
-            
-            libusb_free_device_list(context, deviceListPtr);
-            libusb_exit(context);
+            // Setup packet for retrieving supported langId
+            NativeMethods.control_setup_packet setup = new NativeMethods.control_setup_packet
+            {
+                bmRequestType = (byte)NativeMethods.ENDPOINT_DIRECTION.IN,
+                bRequest = (byte)NativeMethods.STANDARD_REQUEST.GET_DESCRIPTOR,
+                wValue = string_index(0),
+                wIndex = 0,
+                wLength = 255
+            };
 
-            var stringBuilder = new StringBuilder();
-            for (int i = 0; i < buffer.Length; i++)
-                stringBuilder.Append(buffer[i]);
-            return stringBuilder.ToString();
+            NativeMethods.urb urb = new NativeMethods.urb
+            {
+                type = (byte)NativeMethods.URB_TYPE.CONTROL,
+                endpoint = 0,
+                buffer = &setup,
+                buffer_length = sizeof(NativeMethods.control_setup_packet)
+            };
+
+            // Retrieve physical address of hidraw device
+            int hidrawHandle = NativeMethods.open(_path, NativeMethods.oflag.NONBLOCK);
+            StringBuilder usbPath = new StringBuilder(256);
+            NativeMethods.ioctl(hidrawHandle, NativeMethods.HIDIOCGRAWPHYS(256), ref usbPath);
+
+            int usbHandle = NativeMethods.open(usbPath.ToString(), NativeMethods.oflag.NONBLOCK);
+            NativeMethods.ioctl(usbHandle, NativeMethods.USBFDSUBMITURB(255), &urb);
+
+            // Retrieve langId
+            var buf = setup.buffer;
+            ushort langId = (ushort)(buf[2] | buf[3] << 8);
+
+            for (int i = 0; i < 255; i++)
+            {
+                buf[i] = 0;
+            }
+
+            // Retrieve string
+            setup.wIndex = langId;
+            setup.wValue = string_index((byte)index);
+            NativeMethods.ioctl(usbHandle, NativeMethods.USBFDSUBMITURB(255), &urb);
+
+            StringBuilder deviceString = new StringBuilder(255);
+            for (int i = 0; i < 255; i++)
+            {
+                var c = setup.buffer[i];
+                if (c == 0)
+                    break;
+                else
+                    deviceString.Append((char)c);
+            }
+            return deviceString.ToString();
         }
 
         bool TryParseReportDescriptor(out Reports.ReportDescriptor parser, out byte[] reportDescriptor)
