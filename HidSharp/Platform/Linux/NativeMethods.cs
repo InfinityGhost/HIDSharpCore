@@ -87,67 +87,12 @@ namespace HidSharp.Platform.Linux
             STRING = 0x03
         }
 
-        public enum URB_TYPE
-        {
-            CONTROL = 2
-        }
-
         public struct pollfd
 		{
 			public int fd;
 			public pollev events;
 			public pollev revents;
 		}
-
-        [StructLayout(LayoutKind.Sequential)]
-        public unsafe struct control_setup_packet
-        {
-            public byte bmRequestType;
-            public byte bRequest;
-            public ushort wValue;
-            public ushort wIndex;
-            public ushort wLength;
-
-            // data
-            public fixed byte buffer[255];
-        }
-
-        [StructLayout(LayoutKind.Explicit)]
-        public struct urb_union
-        {
-            [FieldOffset(0)]
-            public int num_packets;
-            [FieldOffset(0)]
-            public uint stream_id;
-        }
-
-        [StructLayout(LayoutKind.Sequential)]
-        public struct iso_packet_desc
-        {
-            public uint length;
-            public uint actual_length;
-            public uint status;
-        }
-
-        [StructLayout(LayoutKind.Sequential)]
-        public unsafe struct urb
-        {
-            public byte type;
-            public byte endpoint;
-            public int status;
-            public uint flags;
-            public void* buffer;
-            public int buffer_length;
-            public int actual_length;
-            public int start_frame;
-            public urb_union anon_union;
-            public int error_count;
-            public uint signr;
-            public void* usercontext;
-
-            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 0)]
-            public iso_packet_desc iso_frame_desc;
-        }
 
 		public static int retry(Func<int> sysfunc)
 		{
@@ -288,10 +233,10 @@ namespace HidSharp.Platform.Linux
         public const int HID_MAX_DESCRIPTOR_SIZE = 4096;
         public static readonly UIntPtr HIDIOCGRDESCSIZE = IOR((byte)'H', 1, 4);
         public static readonly UIntPtr HIDIOCGRDESC = IOR((byte)'H', 2, Marshal.SizeOf(typeof(hidraw_report_descriptor)));
+        public static readonly UIntPtr USBDEVFS_CONTROL = IOWR((byte)'U', 0, Marshal.SizeOf(typeof(usbfs_ctrltransfer)));
         public static UIntPtr HIDIOCGRAWPHYS(int length) { return IOR((byte)'H', 5, length); }
         public static UIntPtr HIDIOCSFEATURE(int length) { return IOWR((byte)'H', 6, length); }
         public static UIntPtr HIDIOCGFEATURE(int length) { return IOWR((byte)'H', 7, length); }
-        public static UIntPtr USBFDSUBMITURB(int length) { return IOR((byte)'U', 10, length); }
 
         public struct hidraw_report_descriptor
         {
@@ -299,6 +244,18 @@ namespace HidSharp.Platform.Linux
 
             [MarshalAs(UnmanagedType.ByValArray, SizeConst = HID_MAX_DESCRIPTOR_SIZE)]
             public byte[] value;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public unsafe struct usbfs_ctrltransfer
+        {
+            public byte bRequestType;
+            public byte bRequest;
+            public ushort wValue;
+            public ushort wIndex;
+            public ushort wLength;
+            public uint timeout;
+            public void* data;
         }
 
         [DllImport(libc, SetLastError = true)]
@@ -320,7 +277,7 @@ namespace HidSharp.Platform.Linux
         public static extern int ioctl(int filedes, UIntPtr command, StringBuilder value);
 
         [DllImport(libc, SetLastError = true)]
-        public static extern unsafe int ioctl(int filedes, UIntPtr command, void* value);
+        public static extern int ioctl(int filedes, UIntPtr command, ref usbfs_ctrltransfer value);
         #endregion
         #endregion
 

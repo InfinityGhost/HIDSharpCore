@@ -25,6 +25,7 @@ using HidSharp.Exceptions;
 
 namespace HidSharp.Platform.Linux
 {
+    using static HidSharp.Platform.Linux.NativeMethods;
     using static Libusb.NativeMethods;
 
     sealed class LinuxHidDevice : HidDevice
@@ -166,58 +167,67 @@ namespace HidSharp.Platform.Linux
                 return (ushort)((((byte)NativeMethods.DESCRIPTOR_TYPE.STRING) << 8) | index);
             }
 
-            // Setup packet for retrieving supported langId
-            NativeMethods.control_setup_packet setup = new NativeMethods.control_setup_packet
+            // Setup the packet for retrieving supported langId
+            NativeMethods.usbfs_ctrltransfer setup = new NativeMethods.usbfs_ctrltransfer
             {
-                bmRequestType = (byte)NativeMethods.ENDPOINT_DIRECTION.IN,
+                bRequestType = (byte)NativeMethods.ENDPOINT_DIRECTION.IN,
                 bRequest = (byte)NativeMethods.STANDARD_REQUEST.GET_DESCRIPTOR,
                 wValue = string_index(0),
                 wIndex = 0,
                 wLength = 255
             };
 
-            NativeMethods.urb urb = new NativeMethods.urb
-            {
-                type = (byte)NativeMethods.URB_TYPE.CONTROL,
-                endpoint = 0,
-                buffer = &setup,
-                buffer_length = sizeof(NativeMethods.control_setup_packet)
-            };
-
             int ret;
+            string usbPath;
 
-            // Retrieve physical address of hidraw device
-            int hidrawHandle = NativeMethods.open(_path, NativeMethods.oflag.NONBLOCK);
-            StringBuilder usbPath = new StringBuilder(256);
-            ret = NativeMethods.ioctl(hidrawHandle, NativeMethods.HIDIOCGRAWPHYS(256), usbPath);
+            IntPtr udev = NativeMethodsLibudev.Instance.udev_new();
+            var handle = NativeMethodsLibudev.Instance.udev_device_new_from_syspath(udev, _path);
 
-            int usbHandle = NativeMethods.open(usbPath.ToString(), NativeMethods.oflag.NONBLOCK);
-            ret = NativeMethods.ioctl(usbHandle, NativeMethods.USBFDSUBMITURB(255), &urb);
+            IntPtr parent = NativeMethodsLibudev.Instance.udev_device_get_parent_with_subsystem_devtype(handle, "usb", "usb_device");
 
-            // Retrieve langId
-            var buf = setup.buffer;
-            ushort langId = (ushort)(buf[2] | buf[3] << 8);
+            string devNum = NativeMethodsLibudev.Instance.udev_device_get_sysattr_value(parent, "devnum");
+            string busNum = NativeMethodsLibudev.Instance.udev_device_get_sysattr_value(parent, "busnum");
 
-            for (int i = 0; i < 255; i++)
+            usbPath = $"/dev/bus/usb/{int.Parse(busNum):D3}/{int.Parse(devNum):D3}";
+
+            fixed (char* sbuf = new char[255])
             {
-                buf[i] = 0;
-            }
+                setup.data = sbuf;
 
-            // Retrieve string
-            setup.wIndex = langId;
-            setup.wValue = string_index((byte)index);
-            NativeMethods.ioctl(usbHandle, NativeMethods.USBFDSUBMITURB(255), &urb);
+                // Send packet
+                int usbHandle = NativeMethods.open(usbPath, NativeMethods.oflag.NONBLOCK | NativeMethods.oflag.RDWR);
+                if (NativeMethods.ioctl(usbHandle, NativeMethods.USBDEVFS_CONTROL, ref setup) < 0)
+                {
+                    var err = (error)Marshal.GetLastWin32Error();
+                    throw new DeviceIOException(this, $"Unable to retrieve device string at index {index}: {err}");
+                }
 
-            StringBuilder deviceString = new StringBuilder(255);
-            for (int i = 0; i < 255; i++)
-            {
-                var c = setup.buffer[i];
-                if (c == 0)
-                    break;
-                else
-                    deviceString.Append((char)c);
+                // Retrieve langId
+                var buf = (byte*)setup.data;
+                ushort langId = (ushort)(buf[2] | buf[3] << 8);
+
+                for (int i = 0; i < 255; i++)
+                {
+                    buf[i] = 0;
+                }
+
+                // Retrieve string
+                setup.wIndex = langId;
+                setup.wValue = string_index((byte)index);
+                ret = NativeMethods.ioctl(usbHandle, NativeMethods.USBDEVFS_CONTROL, ref setup);
+
+                var deviceString = new StringBuilder(255);
+                var ssbuf = (char*)setup.data;
+                for (int i = 1; i < 255; i++)
+                {
+                    var c = ssbuf[i];
+                    if (c == 0)
+                        break;
+                    else
+                        deviceString.Append(c);
+                }
+                return deviceString.ToString();
             }
-            return deviceString.ToString();
         }
 
         bool TryParseReportDescriptor(out Reports.ReportDescriptor parser, out byte[] reportDescriptor)
