@@ -22,6 +22,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Text;
 
 namespace HidSharp.Platform.Linux
 {
@@ -69,7 +70,24 @@ namespace HidSharp.Platform.Linux
 			NVAL = 0x20
 		}
 
-		public struct pollfd
+        public enum ENDPOINT_DIRECTION
+        {
+            OUT = 0x00,
+            IN = 0x80
+        }
+
+        public enum STANDARD_REQUEST
+        {
+            // We only need GET_DESCRIPTOR for GetDeviceString
+            GET_DESCRIPTOR = 0x06
+        }
+
+        public enum DESCRIPTOR_TYPE
+        {
+            STRING = 0x03
+        }
+
+        public struct pollfd
 		{
 			public int fd;
 			public pollev events;
@@ -215,6 +233,8 @@ namespace HidSharp.Platform.Linux
         public const int HID_MAX_DESCRIPTOR_SIZE = 4096;
         public static readonly UIntPtr HIDIOCGRDESCSIZE = IOR((byte)'H', 1, 4);
         public static readonly UIntPtr HIDIOCGRDESC = IOR((byte)'H', 2, Marshal.SizeOf(typeof(hidraw_report_descriptor)));
+        public static readonly UIntPtr USBDEVFS_CONTROL = IOWR((byte)'U', 0, Marshal.SizeOf(typeof(usbfs_ctrltransfer)));
+        public static UIntPtr HIDIOCGRAWPHYS(int length) { return IOR((byte)'H', 5, length); }
         public static UIntPtr HIDIOCSFEATURE(int length) { return IOWR((byte)'H', 6, length); }
         public static UIntPtr HIDIOCGFEATURE(int length) { return IOWR((byte)'H', 7, length); }
 
@@ -224,6 +244,18 @@ namespace HidSharp.Platform.Linux
 
             [MarshalAs(UnmanagedType.ByValArray, SizeConst = HID_MAX_DESCRIPTOR_SIZE)]
             public byte[] value;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public unsafe struct usbfs_ctrltransfer
+        {
+            public byte bRequestType;
+            public byte bRequest;
+            public ushort wValue;
+            public ushort wIndex;
+            public ushort wLength;
+            public uint timeout;
+            public void* data;
         }
 
         [DllImport(libc, SetLastError = true)]
@@ -240,6 +272,12 @@ namespace HidSharp.Platform.Linux
 
         [DllImport(libc, SetLastError = true)]
         public static extern int ioctl(int filedes, UIntPtr command);
+
+        [DllImport(libc, SetLastError = true)]
+        public static extern int ioctl(int filedes, UIntPtr command, StringBuilder value);
+
+        [DllImport(libc, SetLastError = true)]
+        public static extern int ioctl(int filedes, UIntPtr command, ref usbfs_ctrltransfer value);
         #endregion
         #endregion
 
