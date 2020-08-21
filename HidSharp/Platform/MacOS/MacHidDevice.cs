@@ -183,15 +183,13 @@ namespace HidSharp.Platform.MacOS
             }
 
             // Setup the packet for retrieving supported langId
-            NativeMethods.usbfs_ctrltransfer setup = new NativeMethods.usbfs_ctrltransfer
+            NativeMethods.IOUSBDevRequest setup = new NativeMethods.IOUSBDevRequest
             {
-                bRequestType = (byte)NativeMethods.ENDPOINT_DIRECTION.IN,
+                bmRequestType = (byte)NativeMethods.ENDPOINT_DIRECTION.IN,
                 bRequest = (byte)NativeMethods.STANDARD_REQUEST.GET_DESCRIPTOR,
                 wValue = string_index(0),
                 wIndex = 0,
-                wLength = 255,
-                noDataTimeout = 0,
-                completionTimeout = 0
+                wLength = 255
             };
 
             // Determine USB device from HID path
@@ -215,41 +213,37 @@ namespace HidSharp.Platform.MacOS
 
             var ret = NativeMethods.IOCreatePlugInInterfaceForService(deviceEntry,
                         NativeMethods.kIOUSBDeviceUserClientTypeID, NativeMethods.kIOCFPluginInterfaceID,
-                        out var ioDev, out var score);
+                        out var pluginInterface, out var score);
 
             if (ret != (int)NativeMethods.IOReturn.Success)
             {
                 throw new Exception($"Plugin Interface creation failed. Reason: {ret}");
             }
             
-            Trace.WriteLine($"{(*ioDev)->version}", "ioDev.version");
-            Trace.WriteLine($"{(*ioDev)->revision}", "ioDev.revision");
+            (*pluginInterface)->QueryInterface(pluginInterface, NativeMethods.CFUUIDGetUUIDBytes(kIOUSBDeviceInterfaceID), out var usbDevPtr);
+            (*pluginInterface)->Release(pluginInterface);
 
-            var kIOUSBInterfaceBytes = NativeMethods.CFUUIDGetUUIDBytes(kIOUSBDeviceInterfaceID);
-            Trace.WriteLine($"{kIOUSBInterfaceBytes}", "kIOUSBDeviceInterfaceBytes");
-
-            (*ioDev)->QueryInterface(ioDev, kIOUSBInterfaceBytes, out var usbDev);
-
-            Trace.WriteLine($"{new IntPtr(usbDev)}", "usbDev");
-
-            if (usbDev != null)
+            if (usbDevPtr != null)
             {
-                var err = NativeMethods.USBDeviceOpenSeize(usbDev);
+                var usbDev = (NativeMethods.IOUSBDeviceStruct182**)usbDevPtr;
+                var err = (*usbDev)->USBDeviceOpen(usbDev);
                 if (err != NativeMethods.IOReturn.Success)
                 {
+                    Trace.WriteLine($"Failed to open USB device. Reason {err}");
                     throw new Exception($"Failed to open USB device. Reason {err}");
                 }
 
                 fixed (char* sbuf = new char[255])
                 {
-                    setup.data = sbuf;
-                    err = NativeMethods.DeviceRequestTO(usbDev, ref setup);
+                    setup.pData = sbuf;
+                    err = (*usbDev)->DeviceRequest(usbDev, &setup);
                     if (err != NativeMethods.IOReturn.Success)
                     {
+                        Trace.WriteLine($"DeviceRequest failed. Reason: {err}");
                         throw new Exception($"DeviceRequest failed. Reason: {err}");
                     }
 
-                    var buf = (byte*)setup.data;
+                    var buf = (byte*)setup.pData;
                     ushort langId = (ushort)(buf[2] | buf[3] << 8);
 
                     for (int i = 0; i < 255; i++)
@@ -261,14 +255,15 @@ namespace HidSharp.Platform.MacOS
                     setup.wIndex = langId;
                     setup.wValue = string_index((byte)index);
 
-                    err = NativeMethods.DeviceRequestTO(usbDev, ref setup);
+                    (*usbDev)->DeviceRequest(usbDev, &setup);
                     if (err != NativeMethods.IOReturn.Success)
                     {
+                        Trace.WriteLine($"Failed to request: {err}");
                         throw new Exception($"DeviceRequest failed. Reason: {err}");
                     }
 
                     var deviceString = new StringBuilder(255);
-                    var ssbuf = (char*)setup.data;
+                    var ssbuf = (char*)setup.pData;
                     for (int i = 1; i < 255; i++)
                     {
                         var c = ssbuf[i];
@@ -277,7 +272,7 @@ namespace HidSharp.Platform.MacOS
                         else
                             deviceString.Append(c);
                     }
-                    NativeMethods.USBDeviceClose(usbDev);
+                    (*usbDev)->USBDeviceClose(usbDev);
                     return deviceString.ToString();
                 }
             }
