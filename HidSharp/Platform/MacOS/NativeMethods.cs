@@ -102,6 +102,17 @@ namespace HidSharp.Platform.MacOS
         public static readonly IntPtr kIOHIDMaxFeatureReportSizeKey = CFStringCreateWithCharacters("MaxFeatureReportSize");
         public static readonly IntPtr kIOHIDReportDescriptorKey = CFStringCreateWithCharacters("ReportDescriptor");
         public static readonly IntPtr kIOCalloutDeviceKey = CFStringCreateWithCharacters("IOCalloutDevice");
+        public static readonly IntPtr kIOCFPluginInterfaceID = CFUUIDGetConstantUUIDWithBytes(IntPtr.Zero,
+                                        0xC2, 0x44, 0xE8, 0x58, 0x10, 0x9C, 0x11, 0xD4,
+                                        0x91, 0xD4, 0x00, 0x50, 0xE4, 0xC6, 0x42, 0x6F);
+
+        public static readonly IntPtr kIOUSBDeviceUserClientTypeID = CFUUIDGetConstantUUIDWithBytes(IntPtr.Zero,
+                                        0x9D, 0xC7, 0xB7, 0x80, 0x9E, 0xC0, 0x11, 0xD4,
+                                        0xA5, 0x4F, 0x00, 0x0A, 0x27, 0x05, 0x28, 0x61);
+
+        public static readonly Guid kIOUSBDeviceInterfaceID = new Guid(new byte[] {
+                                        0x5C, 0x81, 0x87, 0xD0, 0x9E, 0xF3, 0x11, 0xD4,
+                                        0x8B, 0x45, 0x00, 0x0A, 0x27, 0x05, 0x28, 0x61 });
 
         public delegate void IOHIDCallback(IntPtr context, IOReturn result, IntPtr sender);
         public delegate void IOHIDDeviceCallback(IntPtr context, IOReturn result, IntPtr sender, IntPtr device);
@@ -156,6 +167,23 @@ namespace HidSharp.Platform.MacOS
             NotSupported = -536870201,
             Offline = -536870185,
             NotPermitted = -536870174
+        }
+
+        public enum ENDPOINT_DIRECTION
+        {
+            OUT = 0x00,
+            IN = 0x80
+        }
+
+        public enum STANDARD_REQUEST
+        {
+            // We only need GET_DESCRIPTOR for GetDeviceString
+            GET_DESCRIPTOR = 0x06
+        }
+
+        public enum DESCRIPTOR_TYPE
+        {
+            STRING = 0x03
         }
 
         public struct io_string_t
@@ -253,6 +281,20 @@ namespace HidSharp.Platform.MacOS
             {
                 return self.Handle;
             }
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public unsafe struct usbfs_ctrltransfer
+        {
+            public byte bRequestType;
+            public byte bRequest;
+            public ushort wValue;
+            public ushort wIndex;
+            public ushort wLength;
+            public void* data;
+            public uint wLenDone;
+            public uint noDataTimeout;
+            public uint completionTimeout;
         }
 
         public static CFType ToCFType(this IntPtr handle)
@@ -383,6 +425,13 @@ namespace HidSharp.Platform.MacOS
         [DllImport(CoreFoundation, EntryPoint = "CFSetGetValues")]
         public static extern void CFSetGetValues(IntPtr set, IntPtr[] values);
 
+        [DllImport(CoreFoundation)]
+        public extern static IntPtr CFUUIDGetConstantUUIDWithBytes(IntPtr alloc,
+                                                                   byte byte0, byte byte1, byte byte2, byte byte3,
+                                                                   byte byte4, byte byte5, byte byte6, byte byte7,
+                                                                   byte byte8, byte byte9, byte byte10, byte byte11,
+                                                                   byte byte12, byte byte13, byte byte14, byte byte15);
+
         [DllImport(IOKit, EntryPoint = "IOHIDDeviceCreate")]
         public static extern IntPtr IOHIDDeviceCreate(IntPtr allocator, int service);
 
@@ -456,6 +505,12 @@ namespace HidSharp.Platform.MacOS
         [DllImport(IOKit, EntryPoint = "IORegistryEntryCreateCFProperty")]
         public static extern IntPtr IORegistryEntryCreateCFProperty(int entry, IntPtr strKey, IntPtr allocator, IOOptionBits options = IOOptionBits.None);
 
+        [DllImport(IOKit, EntryPoint = "IOCreatePlugInInterfaceForService")]
+        public static unsafe extern IOReturn IOCreatePlugInInterfaceForService(int entry, IntPtr pluginType, IntPtr interfaceType, out IntPtr* theInterface, out int score);
+
+        [DllImport(IOKit, EntryPoint = "DeviceRequestTO")]
+        public static extern IOReturn DeviceRequestTO(IntPtr device, ref usbfs_ctrltransfer transfer);
+
         public static int? IORegistryEntryGetCFProperty_Int(int entry, IntPtr intKey)
         {
             using (var property = IORegistryEntryCreateCFProperty(entry, intKey, IntPtr.Zero).ToCFType())
@@ -485,6 +540,9 @@ namespace HidSharp.Platform.MacOS
 
         [DllImport(IOKit, EntryPoint = "IORegistryEntryGetPath")] // plane = IOService
         public static extern IOReturn IORegistryEntryGetPath(int entry, [MarshalAs(UnmanagedType.LPStr)] string plane, out io_string_t path);
+
+        [DllImport(IOKit, EntryPoint = "IORegistryEntryGetParentEntry")]
+        public static extern IOReturn IORegistryEntryGetParentEntry(int entry, [MarshalAs(UnmanagedType.LPStr)] string plane, out int parent);
 
         [DllImport(IOKit, EntryPoint = "IOServiceAddMatchingNotification")]
         public static extern IOReturn IOServiceAddMatchingNotification(IntPtr notifyPort, IntPtr notifyType, IntPtr matching, IOServiceMatchingCallback callback, IntPtr context, out int iterator);
