@@ -216,14 +216,14 @@ namespace HidSharp.Platform.MacOS
                         NativeMethods.kIOUSBDeviceUserClientTypeID, NativeMethods.kIOCFPluginInterfaceID,
                         out var ioDev, out var score);
 
-            if (ret != NativeMethods.IOReturn.Success)
+            if (ret != (int)NativeMethods.IOReturn.Success)
             {
                 throw new Exception($"Plugin Interface creation failed. Reason: {ret}");
             }
 
-            Marshal.QueryInterface(*ioDev, ref kIOUSBDeviceInterfaceID, out var usbDev);
+            (**ioDev)->QueryInterface(**ioDev, kIOUSBDeviceInterfaceID, out var usbDev);
 
-            if (usbDev != IntPtr.Zero)
+            if (usbDev != null)
             {
                 var err = NativeMethods.USBDeviceOpenSeize(usbDev);
                 if (err != NativeMethods.IOReturn.Success)

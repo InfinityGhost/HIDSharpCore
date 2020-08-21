@@ -297,6 +297,20 @@ namespace HidSharp.Platform.MacOS
             public uint completionTimeout;
         }
 
+        [StructLayout(LayoutKind.Sequential)]
+        public unsafe struct IOCFPlugInInterface
+        {
+            void* _reserved;
+            public delegate* stdcall<void*, Guid, out void*, int> QueryInterface;
+            public delegate* stdcall<void*, ulong> AddRef;
+            public delegate* stdcall<void*, ulong> Release;
+            public ushort version;
+            public ushort revision;
+            public delegate* cdecl<void*, void*, void*, int, IOReturn> Probe;
+            public delegate* cdecl<void*, void*, void*, IOReturn> Start;
+            public delegate* cdecl<void*, void*, void*, IOReturn> Stop;
+        }
+
         public static CFType ToCFType(this IntPtr handle)
         {
             return new CFType() { Handle = handle };
@@ -506,16 +520,19 @@ namespace HidSharp.Platform.MacOS
         public static extern IntPtr IORegistryEntryCreateCFProperty(int entry, IntPtr strKey, IntPtr allocator, IOOptionBits options = IOOptionBits.None);
 
         [DllImport(IOKit, EntryPoint = "IOCreatePlugInInterfaceForService")]
-        public static unsafe extern IOReturn IOCreatePlugInInterfaceForService(int entry, IntPtr pluginType, IntPtr interfaceType, out IntPtr* theInterface, out int score);
+        public static unsafe extern int IOCreatePlugInInterfaceForService(int entry, IntPtr pluginType, IntPtr interfaceType, out IOCFPlugInInterface*** theInterface, out int score);
+
+        [DllImport(IOKit, EntryPoint = "IODestroyPlugInInterface")]
+        public static unsafe extern int IODestroyPlugInInterface(IOCFPlugInInterface** theInterface);
 
         [DllImport(IOKit, EntryPoint = "DeviceRequestTO")]
-        public static extern IOReturn DeviceRequestTO(IntPtr device, ref usbfs_ctrltransfer transfer);
+        public static unsafe extern IOReturn DeviceRequestTO(void* device, ref usbfs_ctrltransfer transfer);
 
         [DllImport(IOKit, EntryPoint = "USBDeviceOpenSeize")]
-        public static extern IOReturn USBDeviceOpenSeize(IntPtr device);
+        public static unsafe extern IOReturn USBDeviceOpenSeize(void* device);
 
         [DllImport(IOKit, EntryPoint = "USBDeviceClose")]
-        public static extern IOReturn USBDeviceClose(IntPtr device);
+        public static unsafe extern IOReturn USBDeviceClose(void* device);
 
         public static int? IORegistryEntryGetCFProperty_Int(int entry, IntPtr intKey)
         {
