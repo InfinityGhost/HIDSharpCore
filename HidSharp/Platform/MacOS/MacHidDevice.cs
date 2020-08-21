@@ -225,10 +225,16 @@ namespace HidSharp.Platform.MacOS
 
             if (usbDev != IntPtr.Zero)
             {
+                var err = NativeMethods.USBDeviceOpenSeize(usbDev);
+                if (err != NativeMethods.IOReturn.Success)
+                {
+                    throw new Exception($"Failed to open USB device. Reason {err}");
+                }
+
                 fixed (char* sbuf = new char[255])
                 {
                     setup.data = sbuf;
-                    var err = NativeMethods.DeviceRequestTO(usbDev, ref setup);
+                    err = NativeMethods.DeviceRequestTO(usbDev, ref setup);
                     if (err != NativeMethods.IOReturn.Success)
                     {
                         throw new Exception($"DeviceRequest failed. Reason: {err}");
@@ -262,6 +268,7 @@ namespace HidSharp.Platform.MacOS
                         else
                             deviceString.Append(c);
                     }
+                    NativeMethods.USBDeviceClose(usbDev);
                     return deviceString.ToString();
                 }
             }

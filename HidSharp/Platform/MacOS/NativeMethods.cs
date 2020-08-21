@@ -511,6 +511,12 @@ namespace HidSharp.Platform.MacOS
         [DllImport(IOKit, EntryPoint = "DeviceRequestTO")]
         public static extern IOReturn DeviceRequestTO(IntPtr device, ref usbfs_ctrltransfer transfer);
 
+        [DllImport(IOKit, EntryPoint = "USBDeviceOpenSeize")]
+        public static extern IOReturn USBDeviceOpenSeize(IntPtr device);
+
+        [DllImport(IOKit, EntryPoint = "USBDeviceClose")]
+        public static extern IOReturn USBDeviceClose(IntPtr device);
+
         public static int? IORegistryEntryGetCFProperty_Int(int entry, IntPtr intKey)
         {
             using (var property = IORegistryEntryCreateCFProperty(entry, intKey, IntPtr.Zero).ToCFType())
