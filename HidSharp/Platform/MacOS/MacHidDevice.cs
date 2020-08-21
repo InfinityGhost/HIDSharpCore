@@ -225,41 +225,45 @@ namespace HidSharp.Platform.MacOS
 
             if (usbDev != IntPtr.Zero)
             {
-                var err = NativeMethods.DeviceRequestTO(usbDev, ref setup);
-                if (err != NativeMethods.IOReturn.Success)
+                fixed (char* sbuf = new char[255])
                 {
-                    throw new Exception($"DeviceRequest failed. Reason: {err}");
+                    setup.data = sbuf;
+                    var err = NativeMethods.DeviceRequestTO(usbDev, ref setup);
+                    if (err != NativeMethods.IOReturn.Success)
+                    {
+                        throw new Exception($"DeviceRequest failed. Reason: {err}");
+                    }
+
+                    var buf = (byte*)setup.data;
+                    ushort langId = (ushort)(buf[2] | buf[3] << 8);
+
+                    for (int i = 0; i < 255; i++)
+                    {
+                        buf[i] = 0;
+                    }
+
+                    // Retrieve string
+                    setup.wIndex = langId;
+                    setup.wValue = string_index((byte)index);
+
+                    err = NativeMethods.DeviceRequestTO(usbDev, ref setup);
+                    if (err != NativeMethods.IOReturn.Success)
+                    {
+                        throw new Exception($"DeviceRequest failed. Reason: {err}");
+                    }
+
+                    var deviceString = new StringBuilder(255);
+                    var ssbuf = (char*)setup.data;
+                    for (int i = 1; i < 255; i++)
+                    {
+                        var c = ssbuf[i];
+                        if (c == 0)
+                            break;
+                        else
+                            deviceString.Append(c);
+                    }
+                    return deviceString.ToString();
                 }
-
-                var buf = (byte*)setup.data;
-                ushort langId = (ushort)(buf[2] | buf[3] << 8);
-
-                for (int i = 0; i < 255; i++)
-                {
-                    buf[i] = 0;
-                }
-
-                // Retrieve string
-                setup.wIndex = langId;
-                setup.wValue = string_index((byte)index);
-
-                err = NativeMethods.DeviceRequestTO(usbDev, ref setup);
-                if (err != NativeMethods.IOReturn.Success)
-                {
-                    throw new Exception($"DeviceRequest failed. Reason: {err}");
-                }
-
-                var deviceString = new StringBuilder(255);
-                var ssbuf = (char*)setup.data;
-                for (int i = 1; i < 255; i++)
-                {
-                    var c = ssbuf[i];
-                    if (c == 0)
-                        break;
-                    else
-                        deviceString.Append(c);
-                }
-                return deviceString.ToString();
             }
             else
             {
