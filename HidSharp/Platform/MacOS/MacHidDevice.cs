@@ -16,6 +16,7 @@
 #endregion
 
 using System;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -196,7 +197,7 @@ namespace HidSharp.Platform.MacOS
             // Determine USB device from HID path
             var hidEntry = NativeMethods.IORegistryEntryFromPath(0, ref _path).ToIOObject();
             int deviceEntry = 0;
-            Guid kIOUSBDeviceInterfaceID = NativeMethods.kIOUSBDeviceInterfaceID;
+            IntPtr kIOUSBDeviceInterfaceID = NativeMethods.kIOUSBDeviceInterfaceID;
 
             if (hidEntry.IsSet)
             {
@@ -220,8 +221,16 @@ namespace HidSharp.Platform.MacOS
             {
                 throw new Exception($"Plugin Interface creation failed. Reason: {ret}");
             }
+            
+            Trace.WriteLine($"{(*ioDev)->version}", "ioDev.version");
+            Trace.WriteLine($"{(*ioDev)->revision}", "ioDev.revision");
 
-            (**ioDev)->QueryInterface(**ioDev, kIOUSBDeviceInterfaceID, out var usbDev);
+            var kIOUSBInterfaceBytes = NativeMethods.CFUUIDGetUUIDBytes(kIOUSBDeviceInterfaceID);
+            Trace.WriteLine($"{kIOUSBInterfaceBytes}", "kIOUSBDeviceInterfaceBytes");
+
+            (*ioDev)->QueryInterface(ioDev, kIOUSBInterfaceBytes, out var usbDev);
+
+            Trace.WriteLine($"{new IntPtr(usbDev)}", "usbDev");
 
             if (usbDev != null)
             {

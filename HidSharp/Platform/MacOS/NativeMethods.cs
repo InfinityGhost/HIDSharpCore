@@ -110,9 +110,9 @@ namespace HidSharp.Platform.MacOS
                                         0x9D, 0xC7, 0xB7, 0x80, 0x9E, 0xC0, 0x11, 0xD4,
                                         0xA5, 0x4F, 0x00, 0x0A, 0x27, 0x05, 0x28, 0x61);
 
-        public static readonly Guid kIOUSBDeviceInterfaceID = new Guid(new byte[] {
+        public static readonly IntPtr kIOUSBDeviceInterfaceID = CFUUIDGetConstantUUIDWithBytes(IntPtr.Zero,
                                         0x5C, 0x81, 0x87, 0xD0, 0x9E, 0xF3, 0x11, 0xD4,
-                                        0x8B, 0x45, 0x00, 0x0A, 0x27, 0x05, 0x28, 0x61 });
+                                        0x8B, 0x45, 0x00, 0x0A, 0x27, 0x05, 0x28, 0x61);
 
         public delegate void IOHIDCallback(IntPtr context, IOReturn result, IntPtr sender);
         public delegate void IOHIDDeviceCallback(IntPtr context, IOReturn result, IntPtr sender, IntPtr device);
@@ -301,7 +301,7 @@ namespace HidSharp.Platform.MacOS
         public unsafe struct IOCFPlugInInterface
         {
             void* _reserved;
-            public delegate* stdcall<void*, Guid, out void*, int> QueryInterface;
+            public delegate* stdcall<void*, CFUUIDBytes, out void*, int> QueryInterface;
             public delegate* stdcall<void*, ulong> AddRef;
             public delegate* stdcall<void*, ulong> Release;
             public ushort version;
@@ -309,6 +309,26 @@ namespace HidSharp.Platform.MacOS
             public delegate* cdecl<void*, void*, void*, int, IOReturn> Probe;
             public delegate* cdecl<void*, void*, void*, IOReturn> Start;
             public delegate* cdecl<void*, void*, void*, IOReturn> Stop;
+        }
+
+        public struct CFUUIDBytes
+        {
+            byte byte0;
+            byte byte1;
+            byte byte2;
+            byte byte3;
+            byte byte4;
+            byte byte5;
+            byte byte6;
+            byte byte7;
+            byte byte8;
+            byte byte9;
+            byte byte10;
+            byte byte11;
+            byte byte12;
+            byte byte13;
+            byte byte14;
+            byte byte15;
         }
 
         public static CFType ToCFType(this IntPtr handle)
@@ -446,6 +466,9 @@ namespace HidSharp.Platform.MacOS
                                                                    byte byte8, byte byte9, byte byte10, byte byte11,
                                                                    byte byte12, byte byte13, byte byte14, byte byte15);
 
+        [DllImport(CoreFoundation)]
+        public extern static CFUUIDBytes CFUUIDGetUUIDBytes(IntPtr bytes);
+
         [DllImport(IOKit, EntryPoint = "IOHIDDeviceCreate")]
         public static extern IntPtr IOHIDDeviceCreate(IntPtr allocator, int service);
 
@@ -520,7 +543,7 @@ namespace HidSharp.Platform.MacOS
         public static extern IntPtr IORegistryEntryCreateCFProperty(int entry, IntPtr strKey, IntPtr allocator, IOOptionBits options = IOOptionBits.None);
 
         [DllImport(IOKit, EntryPoint = "IOCreatePlugInInterfaceForService")]
-        public static unsafe extern int IOCreatePlugInInterfaceForService(int entry, IntPtr pluginType, IntPtr interfaceType, out IOCFPlugInInterface*** theInterface, out int score);
+        public static unsafe extern int IOCreatePlugInInterfaceForService(int entry, IntPtr pluginType, IntPtr interfaceType, out IOCFPlugInInterface** theInterface, out int score);
 
         [DllImport(IOKit, EntryPoint = "IODestroyPlugInInterface")]
         public static unsafe extern int IODestroyPlugInInterface(IOCFPlugInInterface** theInterface);
