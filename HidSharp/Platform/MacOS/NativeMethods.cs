@@ -317,6 +317,7 @@ namespace HidSharp.Platform.MacOS
 
         public unsafe struct IOUSBInterfaceStruct182
         {
+            void* _reserved;
             public delegate* stdcall<void*, CFUUIDBytes, out void*, int> QueryInterface;
             public delegate* stdcall<void*, ulong> AddRef;
             public delegate* stdcall<void*, ulong> Release;
@@ -364,6 +365,7 @@ namespace HidSharp.Platform.MacOS
 
         public unsafe struct IOUSBDeviceStruct182
         {
+            void* _reserved;
             public delegate* stdcall<void*, CFUUIDBytes, out void*, int> QueryInterface;
             public delegate* stdcall<void*, ulong> AddRef;
             public delegate* stdcall<void*, ulong> Release;
@@ -376,9 +378,9 @@ namespace HidSharp.Platform.MacOS
             public delegate* cdecl<void*, byte*, IOReturn> GetDeviceClass;
             public delegate* cdecl<void*, byte*, IOReturn> GetDeviceSubClass;
             public delegate* cdecl<void*, byte*, IOReturn> GetDeviceProtocol;
-            public delegate* cdecl<void*, ushort*, IOReturn> GetDeviceVendor;
-            public delegate* cdecl<void*, ushort*, IOReturn> GetDeviceProduct;
-            public delegate* cdecl<void*, ushort*, IOReturn> GetDeviceReleaseNumber;
+            public delegate* cdecl<void*, out ushort, IOReturn> GetDeviceVendor;
+            public delegate* cdecl<void*, out ushort, IOReturn> GetDeviceProduct;
+            public delegate* cdecl<void*, out ushort, IOReturn> GetDeviceReleaseNumber;
             public delegate* cdecl<void*, ushort*, IOReturn> GetDeviceAddress;
             public delegate* cdecl<void*, uint*, IOReturn> GetDeviceBusPowerAvailable;
             public delegate* cdecl<void*, byte*, IOReturn> GetDeviceSpeed;
@@ -676,8 +678,11 @@ namespace HidSharp.Platform.MacOS
         [DllImport(IOKit, EntryPoint = "IORegistryEntryCreateCFProperty")]
         public static extern IntPtr IORegistryEntryCreateCFProperty(int entry, IntPtr strKey, IntPtr allocator, IOOptionBits options = IOOptionBits.None);
 
+        [DllImport(IOKit, EntryPoint = "IOMasterPort")]
+        public static unsafe extern int IOMasterPort(uint bootstrapPort, out uint masterPort);
+
         [DllImport(IOKit, EntryPoint = "IOCreatePlugInInterfaceForService")]
-        public static unsafe extern int IOCreatePlugInInterfaceForService(int entry, IntPtr pluginType, IntPtr interfaceType, out IOCFPlugInInterface** theInterface, out int score);
+        public static unsafe extern IOReturn IOCreatePlugInInterfaceForService(int entry, IntPtr pluginType, IntPtr interfaceType, out IOCFPlugInInterface** theInterface, out int score);
 
         [DllImport(IOKit, EntryPoint = "IODestroyPlugInInterface")]
         public static unsafe extern int IODestroyPlugInInterface(IOCFPlugInInterface** theInterface);
@@ -716,7 +721,7 @@ namespace HidSharp.Platform.MacOS
         }
 
         [DllImport(IOKit, EntryPoint = "IORegistryEntryFromPath")]
-        public static extern int IORegistryEntryFromPath(int masterPort, ref io_string_t path);
+        public static extern int IORegistryEntryFromPath(uint masterPort, ref io_string_t path);
 
         [DllImport(IOKit, EntryPoint = "IORegistryEntryGetPath")] // plane = IOService
         public static extern IOReturn IORegistryEntryGetPath(int entry, [MarshalAs(UnmanagedType.LPStr)] string plane, out io_string_t path);

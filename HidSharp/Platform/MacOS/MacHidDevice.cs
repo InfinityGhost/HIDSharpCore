@@ -19,6 +19,7 @@ using System;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
+using HidSharp.Exceptions;
 
 namespace HidSharp.Platform.MacOS
 {
@@ -192,8 +193,14 @@ namespace HidSharp.Platform.MacOS
                 wLength = 255
             };
 
+            int kernRet = NativeMethods.IOMasterPort(0, out uint masterPort);
+            if (kernRet != 0)
+            {
+                throw new Exception($"Failed to get IOMasterPort: {kernRet:X}");
+            }
+
             // Determine USB device from HID path
-            var hidEntry = NativeMethods.IORegistryEntryFromPath(0, ref _path).ToIOObject();
+            var hidEntry = NativeMethods.IORegistryEntryFromPath(masterPort, ref _path).ToIOObject();
             int deviceEntry = 0;
             IntPtr kIOUSBDeviceInterfaceID = NativeMethods.kIOUSBDeviceInterfaceID;
 
@@ -211,13 +218,13 @@ namespace HidSharp.Platform.MacOS
                 throw new Exception("Failed retrieving USB Device");
             }
 
-            var ret = NativeMethods.IOCreatePlugInInterfaceForService(deviceEntry,
-                        NativeMethods.kIOUSBDeviceUserClientTypeID, NativeMethods.kIOCFPluginInterfaceID,
-                        out var pluginInterface, out var score);
+            var err = NativeMethods.IOCreatePlugInInterfaceForService(deviceEntry,
+                NativeMethods.kIOUSBDeviceUserClientTypeID, NativeMethods.kIOCFPluginInterfaceID,
+                out var pluginInterface, out var score);
 
-            if (ret != (int)NativeMethods.IOReturn.Success)
+            if (err != NativeMethods.IOReturn.Success)
             {
-                throw new Exception($"Plugin Interface creation failed. Reason: {ret}");
+                throw new Exception($"Plugin Interface creation failed. 0x{err:X}");
             }
             
             (*pluginInterface)->QueryInterface(pluginInterface, NativeMethods.CFUUIDGetUUIDBytes(kIOUSBDeviceInterfaceID), out var usbDevPtr);
@@ -226,11 +233,10 @@ namespace HidSharp.Platform.MacOS
             if (usbDevPtr != null)
             {
                 var usbDev = (NativeMethods.IOUSBDeviceStruct182**)usbDevPtr;
-                var err = (*usbDev)->USBDeviceOpen(usbDev);
+                err = (*usbDev)->USBDeviceOpen(usbDev);
                 if (err != NativeMethods.IOReturn.Success)
                 {
-                    Trace.WriteLine($"Failed to open USB device. Reason {err}");
-                    throw new Exception($"Failed to open USB device. Reason {err}");
+                    throw new DeviceIOException(this, $"Failed to open USB device: 0x{err:X}");
                 }
 
                 fixed (char* sbuf = new char[255])
@@ -239,8 +245,7 @@ namespace HidSharp.Platform.MacOS
                     err = (*usbDev)->DeviceRequest(usbDev, &setup);
                     if (err != NativeMethods.IOReturn.Success)
                     {
-                        Trace.WriteLine($"DeviceRequest failed. Reason: {err}");
-                        throw new Exception($"DeviceRequest failed. Reason: {err}");
+                        throw new DeviceIOException(this, $"DeviceRequest failed: 0x{err:X}");
                     }
 
                     var buf = (byte*)setup.pData;
@@ -258,8 +263,7 @@ namespace HidSharp.Platform.MacOS
                     (*usbDev)->DeviceRequest(usbDev, &setup);
                     if (err != NativeMethods.IOReturn.Success)
                     {
-                        Trace.WriteLine($"Failed to request: {err}");
-                        throw new Exception($"DeviceRequest failed. Reason: {err}");
+                        throw new DeviceIOException(this, $"DeviceRequest failed: 0x{err:X}");
                     }
 
                     var deviceString = new StringBuilder(255);
@@ -278,7 +282,7 @@ namespace HidSharp.Platform.MacOS
             }
             else
             {
-                throw new Exception($"USB Device interface retrieval failed");
+                throw new DeviceIOException(this, $"USB Device interface retrieval failed");
             }
         }
 
