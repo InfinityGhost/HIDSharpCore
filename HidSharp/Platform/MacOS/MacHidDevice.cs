@@ -277,6 +277,7 @@ namespace HidSharp.Platform.MacOS
                             deviceString.Append(c);
                     }
                     (*usbDev)->USBDeviceClose(usbDev);
+                    (*usbDev)->Release(usbDev);
                     return deviceString.ToString();
                 }
             }
