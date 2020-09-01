@@ -1,11 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net5</TargetFrameworks>
+    <TargetFrameworks>netcoreapp3.1;net5</TargetFrameworks>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <AssemblyName>HidSharpCore</AssemblyName>
     <RootNamespace>HidSharp</RootNamespace>
+    <LangVersion>preview</LangVersion>
   </PropertyGroup>
   
   <PropertyGroup>
