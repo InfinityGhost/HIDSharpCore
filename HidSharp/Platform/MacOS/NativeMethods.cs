@@ -102,6 +102,21 @@ namespace HidSharp.Platform.MacOS
         public static readonly IntPtr kIOHIDMaxFeatureReportSizeKey = CFStringCreateWithCharacters("MaxFeatureReportSize");
         public static readonly IntPtr kIOHIDReportDescriptorKey = CFStringCreateWithCharacters("ReportDescriptor");
         public static readonly IntPtr kIOCalloutDeviceKey = CFStringCreateWithCharacters("IOCalloutDevice");
+        public static readonly IntPtr kIOCFPluginInterfaceID = CFUUIDGetConstantUUIDWithBytes(IntPtr.Zero,
+                                        0xC2, 0x44, 0xE8, 0x58, 0x10, 0x9C, 0x11, 0xD4,
+                                        0x91, 0xD4, 0x00, 0x50, 0xE4, 0xC6, 0x42, 0x6F);
+
+        public static readonly IntPtr kIOUSBDeviceUserClientTypeID = CFUUIDGetConstantUUIDWithBytes(IntPtr.Zero,
+                                        0x9D, 0xC7, 0xB7, 0x80, 0x9E, 0xC0, 0x11, 0xD4,
+                                        0xA5, 0x4F, 0x00, 0x0A, 0x27, 0x05, 0x28, 0x61);
+
+        public static readonly IntPtr kIOUSBInterfaceInterfaceID182 = CFUUIDGetConstantUUIDWithBytes(IntPtr.Zero,
+                                        0x49, 0x23, 0xac, 0x4c, 0x48, 0x96, 0x11, 0xD5,
+                                        0x92, 0x08, 0x00, 0x0a, 0x27, 0x80, 0x1e, 0x86);
+
+        public static readonly IntPtr kIOUSBDeviceInterfaceID = CFUUIDGetConstantUUIDWithBytes(IntPtr.Zero,
+                                        0x15, 0x2f, 0xc4, 0x96, 0x48, 0x91, 0x11, 0xD5,
+                                        0x9d, 0x52, 0x00, 0x0a, 0x27, 0x80, 0x1e, 0x86);
 
         public delegate void IOHIDCallback(IntPtr context, IOReturn result, IntPtr sender);
         public delegate void IOHIDDeviceCallback(IntPtr context, IOReturn result, IntPtr sender, IntPtr device);
@@ -156,6 +171,23 @@ namespace HidSharp.Platform.MacOS
             NotSupported = -536870201,
             Offline = -536870185,
             NotPermitted = -536870174
+        }
+
+        public enum ENDPOINT_DIRECTION
+        {
+            OUT = 0x00,
+            IN = 0x80
+        }
+
+        public enum STANDARD_REQUEST
+        {
+            // We only need GET_DESCRIPTOR for GetDeviceString
+            GET_DESCRIPTOR = 0x06
+        }
+
+        public enum DESCRIPTOR_TYPE
+        {
+            STRING = 0x03
         }
 
         public struct io_string_t
@@ -255,6 +287,186 @@ namespace HidSharp.Platform.MacOS
             }
         }
 
+        [StructLayout(LayoutKind.Sequential)]
+        public unsafe struct usbfs_ctrltransfer
+        {
+            public byte bRequestType;
+            public byte bRequest;
+            public ushort wValue;
+            public ushort wIndex;
+            public ushort wLength;
+            public void* data;
+            public uint wLenDone;
+            public uint noDataTimeout;
+            public uint completionTimeout;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public unsafe struct IOCFPlugInInterface
+        {
+            void* _reserved;
+            public delegate* stdcall<void*, CFUUIDBytes, out void*, int> QueryInterface;
+            public delegate* stdcall<void*, ulong> AddRef;
+            public delegate* stdcall<void*, ulong> Release;
+            public ushort version;
+            public ushort revision;
+            public delegate* cdecl<void*, void*, void*, int, IOReturn> Probe;
+            public delegate* cdecl<void*, void*, void*, IOReturn> Start;
+            public delegate* cdecl<void*, void*, void*, IOReturn> Stop;
+        }
+
+        public unsafe struct IOUSBInterfaceStruct182
+        {
+            void* _reserved;
+            public delegate* stdcall<void*, CFUUIDBytes, out void*, int> QueryInterface;
+            public delegate* stdcall<void*, ulong> AddRef;
+            public delegate* stdcall<void*, ulong> Release;
+            public delegate* cdecl<void*, IntPtr, IOReturn> CreateInterfaceAsyncEventSource;
+            public delegate* cdecl<void*, IntPtr> GetInterfaceAsyncEventSource;
+            public delegate* cdecl<void*, uint, IOReturn> CreateInterfaceAsyncPort;
+            public delegate* cdecl<void*, uint> GetInterfaceAsyncPort;
+            public delegate* cdecl<void*, IOReturn> USBInterfaceOpen;
+            public delegate* cdecl<void*, IOReturn> USBInterfaceClose;
+            public delegate* cdecl<void*, byte*, IOReturn> GetInterfaceClass;
+            public delegate* cdecl<void*, byte*, IOReturn> GetInterfaceSubClass;
+            public delegate* cdecl<void*, byte*, IOReturn> GetInterfaceProtocol;
+            public delegate* cdecl<void*, out ushort*, IOReturn> GetDeviceVendor;
+            public delegate* cdecl<void*, out ushort*, IOReturn> GetDeviceProduct;
+            public delegate* cdecl<void*, ushort*, IOReturn> GetDeviceReleaseNumber;
+            public delegate* cdecl<void*, byte*, IOReturn> GetConfigurationValue;
+            public delegate* cdecl<void*, byte*, IOReturn> GetInterfaceNumber;
+            public delegate* cdecl<void*, byte*, IOReturn> GetAlternateSetting;
+            public delegate* cdecl<void*, byte*, IOReturn> GetNumEndpoints;
+            public delegate* cdecl<void*, uint*, IOReturn> GetLocationID;
+            public delegate* cdecl<void*, uint*, IOReturn> GetDevice;
+            public delegate* cdecl<void*, byte, IOReturn> SetAlternateInterface;
+            public delegate* cdecl<void*, ulong*, ulong*, IOReturn> GetBusFrameNumber;
+            public delegate* cdecl<void*, byte, IOUSBDevRequest*, IOReturn> ControlRequest;
+            public delegate* cdecl<void*, byte, IOUSBDevRequest*, IntPtr, void*, IOReturn> ControlRequestAsync;
+            public delegate* cdecl<void*, byte, byte*, byte*, byte*, ushort*, byte*, IOReturn> GetPipeProperties;
+            public delegate* cdecl<void*, byte, IOReturn> GetPipeStatus;
+            public delegate* cdecl<void*, byte, IOReturn> AbortPipe;
+            public delegate* cdecl<void*, byte, IOReturn> ResetPipe;
+            public delegate* cdecl<void*, byte, IOReturn> ClearPipeStall;
+            public delegate* cdecl<void*, byte, void*, uint*, IOReturn> ReadPipe;
+            public delegate* cdecl<void*, byte, void*, uint, IOReturn> WritePipe;
+            public delegate* cdecl<void*, byte, void*, uint, IntPtr, void*, IOReturn> ReadPipeAsync;
+            public delegate* cdecl<void*, byte, void*, uint, IntPtr, void*, IOReturn> WritePipeAsync;
+            public delegate* cdecl<void*, byte, void*, ulong, uint, IOUSBIsocFrame*, IntPtr, void*, IOReturn> ReadIsochPipeAsync;
+            public delegate* cdecl<void*, byte, void*, ulong, uint, IOUSBIsocFrame*, IntPtr, void*, IOReturn> WriteIsochPipeAsync;
+            public delegate* cdecl<void*, byte, IOUSBDevRequestTO*, IOReturn> ControlRequestTO;
+            public delegate* cdecl<void*, byte, IOUSBDevRequestTO*, IntPtr, void*, IOReturn> ControlRequestAsyncTO;
+            public delegate* cdecl<void*, byte, void*, uint*, uint, uint, IOReturn> ReadPipeTO;
+            public delegate* cdecl<void*, byte, void*, uint, uint, uint, IOReturn> WritePipeTO;
+            public delegate* cdecl<void*, byte, void*, uint, uint, uint, IntPtr, void*, IOReturn> ReadPipeAsyncTO;
+            public delegate* cdecl<void*, byte, void*, uint, uint, uint, IntPtr, void*, IOReturn> WritePipeAsyncTO;
+            public delegate* cdecl<void*, byte*, IOReturn> USBInterfaceGetStringIndex;
+        }
+
+        public unsafe struct IOUSBDeviceStruct182
+        {
+            void* _reserved;
+            public delegate* stdcall<void*, CFUUIDBytes, out void*, int> QueryInterface;
+            public delegate* stdcall<void*, ulong> AddRef;
+            public delegate* stdcall<void*, ulong> Release;
+            public delegate* cdecl<void*, IntPtr*, IOReturn> CreateDeviceAsyncEventSource;
+            public delegate* cdecl<void*, IntPtr> GetDeviceAsyncEventSource;
+            public delegate* cdecl<void*, uint*, IOReturn> CreateDeviceAsyncPort;
+            public delegate* cdecl<void*, uint> GetDeviceAsyncPort;
+            public delegate* cdecl<void*, IOReturn> USBDeviceOpen;
+            public delegate* cdecl<void*, IOReturn> USBDeviceClose;
+            public delegate* cdecl<void*, byte*, IOReturn> GetDeviceClass;
+            public delegate* cdecl<void*, byte*, IOReturn> GetDeviceSubClass;
+            public delegate* cdecl<void*, byte*, IOReturn> GetDeviceProtocol;
+            public delegate* cdecl<void*, out ushort, IOReturn> GetDeviceVendor;
+            public delegate* cdecl<void*, out ushort, IOReturn> GetDeviceProduct;
+            public delegate* cdecl<void*, out ushort, IOReturn> GetDeviceReleaseNumber;
+            public delegate* cdecl<void*, ushort*, IOReturn> GetDeviceAddress;
+            public delegate* cdecl<void*, uint*, IOReturn> GetDeviceBusPowerAvailable;
+            public delegate* cdecl<void*, byte*, IOReturn> GetDeviceSpeed;
+            public delegate* cdecl<void*, byte*, IOReturn> GetNumberOfConfigurations;
+            public delegate* cdecl<void*, uint*, IOReturn> GetLocationID;
+            public delegate* cdecl<void*, byte*, IOUSBConfigurationDescriptor**, IOReturn> GetConfigurationDescriptorPtr;
+            public delegate* cdecl<void*, byte*, IOReturn> GetConfiguration;
+            public delegate* cdecl<void*, byte*, IOReturn> SetConfiguration;
+            public delegate* cdecl<void*, ulong*, ulong*, IOReturn> GetBusFrameNumber;
+            public delegate* cdecl<void*, IOReturn> ResetDevice;
+            public delegate* cdecl<void*, IOUSBDevRequest*, IOReturn> DeviceRequest;
+            public delegate* cdecl<void*, IOUSBDevRequest*, IntPtr, void*, IOReturn> DeviceRequestAsync;
+            public delegate* cdecl<void*, IOUSBFindInterfaceRequest*, uint*, IOReturn> CreateInterfaceIterator;
+        }
+
+        public struct IOUSBConfigurationDescriptor
+        {
+            byte bLength;
+            byte bDescriptorType;
+            ushort wTotalLength;
+            byte bNumInterfaces;
+            byte bConfigurationValue;
+            byte iConfiguration;
+            byte bmAttributes;
+            byte MaxPower;
+        }
+
+        public unsafe struct IOUSBDevRequest
+        {
+            public byte bmRequestType;
+            public byte bRequest;
+            public ushort wValue;
+            public ushort wIndex;
+            public ushort wLength;
+            public void* pData;
+            public uint wLenDone;
+        }
+
+        public struct IOUSBFindInterfaceRequest
+        {
+            ushort bInterfaceClass; // requested class
+            ushort bInterfaceSubClass; // requested subclass
+            ushort bInterfaceProtocol; // requested protocol
+            ushort bAlternateSetting; // requested alt setting
+        }
+
+        public struct IOUSBIsocFrame
+        {
+            IOReturn frStatus;
+            ushort frReqCount;
+            ushort frActCount;
+        }
+
+        public unsafe struct IOUSBDevRequestTO
+        {
+            byte bmRequestType;
+            byte bRequest;
+            ushort wValue;
+            ushort wIndex;
+            ushort wLength;
+            void* pData;
+            uint wLenDone;
+            uint noDataTimeout;
+            uint completionTimeout;
+        }
+
+        public struct CFUUIDBytes
+        {
+            byte byte0;
+            byte byte1;
+            byte byte2;
+            byte byte3;
+            byte byte4;
+            byte byte5;
+            byte byte6;
+            byte byte7;
+            byte byte8;
+            byte byte9;
+            byte byte10;
+            byte byte11;
+            byte byte12;
+            byte byte13;
+            byte byte14;
+            byte byte15;
+        }
+
         public static CFType ToCFType(this IntPtr handle)
         {
             return new CFType() { Handle = handle };
@@ -269,7 +481,7 @@ namespace HidSharp.Platform.MacOS
         public static extern OSErr Gestalt(OSType selector, out IntPtr response);
 
         [DllImport(CoreFoundation, EntryPoint = "CFGetTypeID")]
-		public static extern uint CFGetTypeID(IntPtr type);
+        public static extern uint CFGetTypeID(IntPtr type);
 
         [DllImport(CoreFoundation, EntryPoint = "CFArrayGetTypeID")]
         public static extern uint CFArrayGetTypeID();
@@ -278,14 +490,14 @@ namespace HidSharp.Platform.MacOS
         public static extern uint CFDataGetTypeID();
 
         [DllImport(CoreFoundation, EntryPoint = "CFNumberGetTypeID")]
-		public static extern uint CFNumberGetTypeID();
+        public static extern uint CFNumberGetTypeID();
 
         [DllImport(CoreFoundation, EntryPoint = "CFStringGetTypeID")]
-		public static extern uint CFStringGetTypeID();
+        public static extern uint CFStringGetTypeID();
 
         [DllImport(CoreFoundation, EntryPoint = "CFDictionaryCreateMutable")]
         public static extern IntPtr CFDictionaryCreateMutable(IntPtr allocator, IntPtr capacity,
-                                                       		  IntPtr keyCallbacks, IntPtr valueCallbacks);
+                                                                 IntPtr keyCallbacks, IntPtr valueCallbacks);
 
         public static IntPtr CFDictionaryCreateMutable()
         {
@@ -331,7 +543,7 @@ namespace HidSharp.Platform.MacOS
         {
             int value;
             return number != IntPtr.Zero && CFGetTypeID(number) == CFNumberGetTypeID() &&
-				CFNumberGetValue(number, CFNumberType.Int, out value) ? (int?)value : null;
+                CFNumberGetValue(number, CFNumberType.Int, out value) ? (int?)value : null;
         }
 
         [DllImport(CoreFoundation, CharSet = CharSet.Unicode, EntryPoint = "CFStringCreateWithCharacters")]
@@ -382,6 +594,16 @@ namespace HidSharp.Platform.MacOS
 
         [DllImport(CoreFoundation, EntryPoint = "CFSetGetValues")]
         public static extern void CFSetGetValues(IntPtr set, IntPtr[] values);
+
+        [DllImport(CoreFoundation)]
+        public extern static IntPtr CFUUIDGetConstantUUIDWithBytes(IntPtr alloc,
+                                                                   byte byte0, byte byte1, byte byte2, byte byte3,
+                                                                   byte byte4, byte byte5, byte byte6, byte byte7,
+                                                                   byte byte8, byte byte9, byte byte10, byte byte11,
+                                                                   byte byte12, byte byte13, byte byte14, byte byte15);
+
+        [DllImport(CoreFoundation)]
+        public extern static CFUUIDBytes CFUUIDGetUUIDBytes(IntPtr bytes);
 
         [DllImport(IOKit, EntryPoint = "IOHIDDeviceCreate")]
         public static extern IntPtr IOHIDDeviceCreate(IntPtr allocator, int service);
@@ -456,6 +678,24 @@ namespace HidSharp.Platform.MacOS
         [DllImport(IOKit, EntryPoint = "IORegistryEntryCreateCFProperty")]
         public static extern IntPtr IORegistryEntryCreateCFProperty(int entry, IntPtr strKey, IntPtr allocator, IOOptionBits options = IOOptionBits.None);
 
+        [DllImport(IOKit, EntryPoint = "IOMasterPort")]
+        public static unsafe extern int IOMasterPort(uint bootstrapPort, out uint masterPort);
+
+        [DllImport(IOKit, EntryPoint = "IOCreatePlugInInterfaceForService")]
+        public static unsafe extern IOReturn IOCreatePlugInInterfaceForService(int entry, IntPtr pluginType, IntPtr interfaceType, out IOCFPlugInInterface** theInterface, out int score);
+
+        [DllImport(IOKit, EntryPoint = "IODestroyPlugInInterface")]
+        public static unsafe extern int IODestroyPlugInInterface(IOCFPlugInInterface** theInterface);
+
+        [DllImport(IOKit, EntryPoint = "DeviceRequestTO")]
+        public static unsafe extern IOReturn DeviceRequestTO(void* device, ref usbfs_ctrltransfer transfer);
+
+        [DllImport(IOKit, EntryPoint = "USBDeviceOpenSeize")]
+        public static unsafe extern IOReturn USBDeviceOpenSeize(void* device);
+
+        [DllImport(IOKit, EntryPoint = "USBDeviceClose")]
+        public static unsafe extern IOReturn USBDeviceClose(void* device);
+
         public static int? IORegistryEntryGetCFProperty_Int(int entry, IntPtr intKey)
         {
             using (var property = IORegistryEntryCreateCFProperty(entry, intKey, IntPtr.Zero).ToCFType())
@@ -481,10 +721,13 @@ namespace HidSharp.Platform.MacOS
         }
 
         [DllImport(IOKit, EntryPoint = "IORegistryEntryFromPath")]
-        public static extern int IORegistryEntryFromPath(int masterPort, ref io_string_t path);
+        public static extern int IORegistryEntryFromPath(uint masterPort, ref io_string_t path);
 
         [DllImport(IOKit, EntryPoint = "IORegistryEntryGetPath")] // plane = IOService
         public static extern IOReturn IORegistryEntryGetPath(int entry, [MarshalAs(UnmanagedType.LPStr)] string plane, out io_string_t path);
+
+        [DllImport(IOKit, EntryPoint = "IORegistryEntryGetParentEntry")]
+        public static extern IOReturn IORegistryEntryGetParentEntry(int entry, [MarshalAs(UnmanagedType.LPStr)] string plane, out int parent);
 
         [DllImport(IOKit, EntryPoint = "IOServiceAddMatchingNotification")]
         public static extern IOReturn IOServiceAddMatchingNotification(IntPtr notifyPort, IntPtr notifyType, IntPtr matching, IOServiceMatchingCallback callback, IntPtr context, out int iterator);
