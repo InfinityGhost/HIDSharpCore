@@ -1,17 +1,18 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>netcoreapp3.1</TargetFrameworks>
+    <TargetFrameworks>netcoreapp3.1;net5</TargetFrameworks>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <AssemblyName>HidSharpCore</AssemblyName>
     <RootNamespace>HidSharp</RootNamespace>
+    <LangVersion>preview</LangVersion>
   </PropertyGroup>
   
   <PropertyGroup>
     <PackageId>HidSharpCore</PackageId>
     <PackageOutputPath>./nupkg</PackageOutputPath>
-    <Version>1.0.1</Version>
+    <Version>1.1.0</Version>
     <Authors>James F. Bellinger; InfinityGhost</Authors>
     <Copyright>Copyright 2010-2019 James Bellinger</Copyright>
   </PropertyGroup>

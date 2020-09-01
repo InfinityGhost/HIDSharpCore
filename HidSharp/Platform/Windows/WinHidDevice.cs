@@ -20,6 +20,7 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace HidSharp.Platform.Windows
@@ -195,74 +196,22 @@ namespace HidSharp.Platform.Windows
             return (byte[])descriptor.Clone();
         }
 
-        /*
-        TODO
-        public unsafe override string[] GetDevicePathHierarchy()
+        public override string GetDeviceString(int index)
         {
-            uint devInst;
-            if (TryGetDeviceUsbRoot(out devInst))
+            string str;
+            StringBuilder deviceString = new StringBuilder(256);
+            var handle = NativeMethods.CreateFileFromDevice(_path, NativeMethods.EFileAccess.None, NativeMethods.EFileShare.Read | NativeMethods.EFileShare.Write);
+            if (handle != (IntPtr)(-1) && NativeMethods.HidD_GetIndexedString(handle, (ulong)index, deviceString, 256))
             {
-                char* buffer = stackalloc char[1024]; uint length = 2048;
-                if (0 == NativeMethods.CM_Get_DevNode_Registry_Property(devInst, NativeMethods.CM_DRP_DRIVER, null, buffer, ref length, 0))
-                {
-                    var targetName = new string(buffer, 0, (int)(length >> 1)).TrimEnd('\0');
-
-                    uint parentDevInst;
-                    if (0 == NativeMethods.CM_Get_Parent(out parentDevInst, devInst))
-                    {
-                        var devicePaths = new List<string>();
-                        GetDevicePaths(parentDevInst, NativeMethods.GuidForUsbHub, devicePaths);
-
-                        foreach (var devicePath in devicePaths)
-                        {
-                            var handle = NativeMethods.CreateFileFromDevice(devicePath, NativeMethods.EFileAccess.None, NativeMethods.EFileShare.Read | NativeMethods.EFileShare.Write);
-                            if (handle != (IntPtr)(-1))
-                            {
-                                try
-                                {
-                                    for (uint N = 1; ; N++)
-                                    {
-                                        var nci = new NativeMethods.USB_NODE_CONNECTION_INFORMATION() { ConnectionIndex = N };
-                                        var nciSize = (uint)sizeof(NativeMethods.USB_NODE_CONNECTION_INFORMATION);
-
-                                        uint bytesReturned;
-                                        if (!NativeMethods.DeviceIoControl(handle, NativeMethods.IOCTL_USB_GET_NODE_CONNECTION_INFORMATION,
-                                                                           &nci, nciSize, &nci, nciSize, out bytesReturned, null)) { break; }
-
-                                        if (nci.ConnectionStatus == NativeMethods.USB_CONNECTION_STATUS.DeviceConnected)
-                                        {
-                                            var ncn = new NativeMethods.USB_NODE_CONNECTION_DRIVERKEY_NAME() { ConnectionIndex = N };
-                                            var ncnSize = (uint)sizeof(NativeMethods.USB_NODE_CONNECTION_DRIVERKEY_NAME);
-
-                                            if (NativeMethods.DeviceIoControl(handle, NativeMethods.IOCTL_USB_GET_NODE_CONNECTION_DRIVERKEY_NAME,
-                                                                              &ncn, ncnSize, &ncn, ncnSize, out bytesReturned, null))
-                                            {
-                                                if (ncn.ActualLength > 12)
-                                                {
-                                                    var thisName = new string(ncn.NodeName, 0, (int)((ncn.ActualLength - 12) >> 1));
-                                                    if (thisName == targetName)
-                                                    {
-                                                        // We figured out which USB port we are connected to!
-                                                        Console.WriteLine(N.ToString());
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                                finally
-                                {
-                                    NativeMethods.CloseHandle(handle);
-                                }
-                            }
-                        }
-                    }
-                }
+                str = deviceString.ToString();
             }
-
-            return new string[0];
+            else
+            {
+                str = null;
+            }
+            NativeMethods.CloseHandle(handle);
+            return str;
         }
-        */
 
         bool TryGetDeviceUsbRoot(out uint devInst)
         {

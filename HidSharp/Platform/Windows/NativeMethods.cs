@@ -24,6 +24,7 @@ using System.Globalization;
 using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Threading;
 using HidSharp.Experimental;
 using HidSharp.Utility;
@@ -1048,6 +1049,10 @@ namespace HidSharp.Platform.Windows
         [DllImport("hid.dll", SetLastError = true, CharSet = CharSet.Auto)]
         [return: MarshalAs(UnmanagedType.U1)]
         public static extern bool HidD_GetProductString(IntPtr handle, char[] buffer, int bufferLengthInBytes);
+
+        [DllImport("hid.dll", SetLastError = true, CharSet = CharSet.Auto)]
+        [return: MarshalAs(UnmanagedType.U1)]
+        public static extern bool HidD_GetIndexedString(IntPtr handle, ulong stringIndex, StringBuilder buffer, ulong bufferLength);
 
         [DllImport("hid.dll", SetLastError = true, CharSet = CharSet.Auto)]
         [return: MarshalAs(UnmanagedType.U1)]
