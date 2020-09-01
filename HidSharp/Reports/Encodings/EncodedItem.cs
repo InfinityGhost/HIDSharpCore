@@ -138,7 +138,8 @@ namespace HidSharp.Reports.Encodings
                 Data.Clear();
                 Data.Add((byte)value);
                 if (value > 0xff) { Data.Add((byte)(value >> 8)); }
-                if (value > 0xffff) { Data.Add((byte)(value >> 16)); Data.Add((byte)(value >> 24)); }
+                if (value > 0xffff) { Data.Add((byte)(value >> 16)); }
+                if (value > 0xffffff) { Data.Add((byte)(value >> 24)); }
             }
         }
 

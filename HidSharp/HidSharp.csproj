@@ -11,6 +11,7 @@
   
   <PropertyGroup>
     <PackageId>HidSharpCore</PackageId>
+    <PackageOutputPath>./nupkg</PackageOutputPath>
     <Version>1.1.0</Version>
     <Authors>James F. Bellinger; InfinityGhost</Authors>
     <Copyright>Copyright 2010-2019 James Bellinger</Copyright>
