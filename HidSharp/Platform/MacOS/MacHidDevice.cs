@@ -178,17 +178,19 @@ namespace HidSharp.Platform.MacOS
 
         public override unsafe string GetDeviceString(int index)
         {
-            static ushort string_index(byte index)
+            ushort stringIndex(byte index) => (ushort)((((byte)NativeMethods.DESCRIPTOR_TYPE.STRING) << 8) | index);
+            void closeDev(NativeMethods.IOUSBDeviceStruct182** usbDev)
             {
-                return (ushort)((((byte)NativeMethods.DESCRIPTOR_TYPE.STRING) << 8) | index);
+                (*usbDev)->USBDeviceClose(usbDev);
+                (*usbDev)->Release(usbDev);
             }
 
             // Setup the packet for retrieving supported langId
-            NativeMethods.IOUSBDevRequest setup = new NativeMethods.IOUSBDevRequest
+            var setup = new NativeMethods.IOUSBDevRequest
             {
                 bmRequestType = (byte)NativeMethods.ENDPOINT_DIRECTION.IN,
                 bRequest = (byte)NativeMethods.STANDARD_REQUEST.GET_DESCRIPTOR,
-                wValue = string_index(0),
+                wValue = stringIndex(0),
                 wIndex = 0,
                 wLength = 255
             };
@@ -236,6 +238,7 @@ namespace HidSharp.Platform.MacOS
                 err = (*usbDev)->USBDeviceOpen(usbDev);
                 if (err != NativeMethods.IOReturn.Success)
                 {
+                    (*usbDev)->Release(usbDev);
                     throw new DeviceIOException(this, $"Failed to open USB device: 0x{err:X}");
                 }
 
@@ -245,6 +248,7 @@ namespace HidSharp.Platform.MacOS
                     err = (*usbDev)->DeviceRequest(usbDev, &setup);
                     if (err != NativeMethods.IOReturn.Success)
                     {
+                        closeDev(usbDev);
                         throw new DeviceIOException(this, $"DeviceRequest failed: 0x{err:X}");
                     }
 
@@ -258,11 +262,12 @@ namespace HidSharp.Platform.MacOS
 
                     // Retrieve string
                     setup.wIndex = langId;
-                    setup.wValue = string_index((byte)index);
+                    setup.wValue = stringIndex((byte)index);
 
                     (*usbDev)->DeviceRequest(usbDev, &setup);
                     if (err != NativeMethods.IOReturn.Success)
                     {
+                        closeDev(usbDev);
                         throw new DeviceIOException(this, $"DeviceRequest failed: 0x{err:X}");
                     }
 
@@ -276,8 +281,7 @@ namespace HidSharp.Platform.MacOS
                         else
                             deviceString.Append(c);
                     }
-                    (*usbDev)->USBDeviceClose(usbDev);
-                    (*usbDev)->Release(usbDev);
+                    closeDev(usbDev);
                     return deviceString.ToString();
                 }
             }
