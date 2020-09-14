@@ -16,12 +16,17 @@
 #endregion
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Text;
+using System.Linq;
 using HidSharp.Exceptions;
 
 namespace HidSharp.Platform.Linux
 {
+    using static HidSharp.Platform.Linux.NativeMethods;
+
     sealed class LinuxHidDevice : HidDevice
     {
         object _getInfoLock;
@@ -81,6 +86,7 @@ namespace HidSharp.Platform.Linux
                                             d._manufacturer = manufacturer;
                                             d._productName = productName;
                                             d._serialNumber = serialNumber;
+
                                             return d;
                                         }
                                     }
@@ -151,6 +157,95 @@ namespace HidSharp.Platform.Linux
         {
             RequiresGetInfo();
             return (byte[])_reportDescriptor.Clone();
+        }
+
+        public override unsafe string GetDeviceString(int index)
+        {
+            static ushort string_index(byte index)
+            {
+                return (ushort)((((byte)DESCRIPTOR_TYPE.STRING) << 8) | index);
+            }
+
+            // Setup the packet for retrieving supported langId
+            usbfs_ctrltransfer setup = new usbfs_ctrltransfer
+            {
+                bRequestType = (byte)ENDPOINT_DIRECTION.IN,
+                bRequest = (byte)STANDARD_REQUEST.GET_DESCRIPTOR,
+                wValue = string_index(0),
+                wIndex = 0,
+                wLength = 255
+            };
+
+            string usbPath;
+
+            IntPtr udev = NativeMethodsLibudev.Instance.udev_new();
+            var handle = NativeMethodsLibudev.Instance.udev_device_new_from_syspath(udev, _path);
+
+            IntPtr parent = NativeMethodsLibudev.Instance.udev_device_get_parent_with_subsystem_devtype(handle, "usb", "usb_device");
+
+            string devNum = NativeMethodsLibudev.Instance.udev_device_get_sysattr_value(parent, "devnum");
+            string busNum = NativeMethodsLibudev.Instance.udev_device_get_sysattr_value(parent, "busnum");
+
+            usbPath = $"/dev/bus/usb/{int.Parse(busNum):D3}/{int.Parse(devNum):D3}";
+
+            try
+            {
+                fixed (char* sbuf = new char[255])
+                {
+                    setup.data = sbuf;
+
+                    // Send packet
+                    int usbHandle = open(usbPath, oflag.NONBLOCK | oflag.RDWR);
+                    if (ioctl(usbHandle, USBDEVFS_CONTROL, ref setup) < 0)
+                    {
+                        close(usbHandle);
+                        var err = (error)Marshal.GetLastWin32Error();
+                        throw new DeviceIOException(this, $"Unable to retrieve device's supported langId: {err}");
+                    }
+
+                    // Retrieve langId
+                    var buf = (byte*)setup.data;
+                    ushort langId = (ushort)(buf[2] | buf[3] << 8);
+
+                    for (int i = 0; i < 255; i++)
+                    {
+                        buf[i] = 0;
+                    }
+
+                    // Retrieve string
+                    setup.wIndex = langId;
+                    setup.wValue = string_index((byte)index);
+                    if (ioctl(usbHandle, USBDEVFS_CONTROL, ref setup) < 0)
+                    {
+                        close(usbHandle);
+                        var err = (error)Marshal.GetLastWin32Error();
+                        throw new DeviceIOException(this, $"Unable to retrieve device string at index {index}: {err}");
+                    }
+
+                    close(usbHandle);
+
+                    var deviceString = new StringBuilder(255);
+                    var ssbuf = (char*)setup.data;
+                    for (int i = 1; i < 255; i++)
+                    {
+                        var c = ssbuf[i];
+                        if (c == 0)
+                            break;
+                        else
+                            deviceString.Append(c);
+                    }
+                    return deviceString.ToString();
+                }
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+                NativeMethodsLibudev.Instance.udev_device_unref(parent);
+                NativeMethodsLibudev.Instance.udev_unref(udev);
+            }
         }
 
         bool TryParseReportDescriptor(out Reports.ReportDescriptor parser, out byte[] reportDescriptor)

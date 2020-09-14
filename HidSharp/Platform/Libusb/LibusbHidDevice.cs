@@ -43,18 +43,12 @@ namespace HidSharp.Platform.Libusb
 
         public override string GetFileSystemName()
         {
-            throw new NotImplementedException();
+            return "";
         }
 
         public override string GetManufacturer()
         {
-            var manufacturer = new StringBuilder(256);
-            var err = libusb.get_string_descriptor_ascii(_deviceHandle, _descriptor.iManufacturer, manufacturer, 256);
-            if (err < 0)
-            {
-                throw DeviceException.CreateIOException(this, "Failed to read report descriptor.");
-            }
-            return manufacturer.ToString();
+            return GetDeviceString(_descriptor.iManufacturer);
         }
 
         public override int GetMaxFeatureReportLength()
@@ -74,24 +68,12 @@ namespace HidSharp.Platform.Libusb
 
         public override string GetProductName()
         {
-            var product = new StringBuilder(256);
-            var err = libusb.get_string_descriptor_ascii(_deviceHandle, _descriptor.iProduct, product, 256);
-            if (err < 0)
-            {
-                throw DeviceException.CreateIOException(this, "Failed to read report descriptor.");
-            }
-            return product.ToString();
+            return GetDeviceString(_descriptor.iProduct);
         }
 
         public override string GetSerialNumber()
         {
-            var serial = new StringBuilder(256);
-            var err = libusb.get_string_descriptor_ascii(_deviceHandle, _descriptor.iSerialNumber, serial, 256);
-            if (err < 0)
-            {
-                throw DeviceException.CreateIOException(this, "Failed to read report descriptor.");
-            }
-            return serial.ToString();
+            return GetDeviceString(_descriptor.iSerialNumber);
         }
 
         protected override DeviceStream OpenDeviceDirectly(OpenConfiguration openConfig)
@@ -99,6 +81,17 @@ namespace HidSharp.Platform.Libusb
             var stream = new LibusbHidStream<T>(this);
             try { stream.Init(_deviceHandle, (byte)_dev.Endpoint.Interface, (byte)_dev.Endpoint.Address); return stream; }
             catch { stream.Close(); throw; }
+        }
+
+        public override string GetDeviceString(int index)
+        {
+            var deviceString = new StringBuilder(256);
+            var err = libusb.get_string_descriptor_ascii(_deviceHandle, _descriptor.iSerialNumber, deviceString, 256);
+            if (err < 0)
+            {
+                throw DeviceException.CreateIOException(this, "Failed to read string descriptor.");
+            }
+            return deviceString.ToString();
         }
     }
 }

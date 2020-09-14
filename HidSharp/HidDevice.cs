@@ -99,13 +99,11 @@ namespace HidSharp
             throw new NotSupportedException(); // Windows reconstructs it. Linux can retrieve it. MacOS 10.8+ can retrieve it as well.
         }
 
-        /*
-        TODO
-        public virtual string[] GetDevicePathHierarchy()
-        {
-            throw new NotSupportedException();
-        }
-        */
+        /// <summary>
+        /// Returns the device string located at the indicated <see cref="index"/>
+        /// </summary>
+        /// <param name="index">The index of the device string</param>
+        public abstract string GetDeviceString(int index);
 
         /// <summary>
         /// Returns the serial ports of the composite USB device.

@@ -16,6 +16,10 @@
 #endregion
 
 using System;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
+using System.Text;
+using HidSharp.Exceptions;
 
 namespace HidSharp.Platform.MacOS
 {
@@ -170,6 +174,121 @@ namespace HidSharp.Platform.MacOS
             var descriptor = _reportDescriptor;
             if (descriptor == null) { throw new NotSupportedException("Report descriptors are only available on OS X 10.8+."); } // FIXME: Is this true? Found the minimum version via Google: https://codereview.chromium.org/1373923003
             return (byte[])descriptor.Clone();
+        }
+
+        public override unsafe string GetDeviceString(int index)
+        {
+            ushort stringIndex(byte index) => (ushort)((((byte)NativeMethods.DESCRIPTOR_TYPE.STRING) << 8) | index);
+            void closeDev(NativeMethods.IOUSBDeviceStruct182** usbDev)
+            {
+                (*usbDev)->USBDeviceClose(usbDev);
+                (*usbDev)->Release(usbDev);
+            }
+
+            // Setup the packet for retrieving supported langId
+            var setup = new NativeMethods.IOUSBDevRequest
+            {
+                bmRequestType = (byte)NativeMethods.ENDPOINT_DIRECTION.IN,
+                bRequest = (byte)NativeMethods.STANDARD_REQUEST.GET_DESCRIPTOR,
+                wValue = stringIndex(0),
+                wIndex = 0,
+                wLength = 255
+            };
+
+            int kernRet = NativeMethods.IOMasterPort(0, out uint masterPort);
+            if (kernRet != 0)
+            {
+                throw new Exception($"Failed to get IOMasterPort: {kernRet:X}");
+            }
+
+            // Determine USB device from HID path
+            var hidEntry = NativeMethods.IORegistryEntryFromPath(masterPort, ref _path).ToIOObject();
+            int deviceEntry = 0;
+            IntPtr kIOUSBDeviceInterfaceID = NativeMethods.kIOUSBDeviceInterfaceID;
+
+            if (hidEntry.IsSet)
+            {
+                NativeMethods.IORegistryEntryGetParentEntry(hidEntry, "IOService", out var interfaceEntry);
+                if (interfaceEntry != 0)
+                {
+                    NativeMethods.IORegistryEntryGetParentEntry(interfaceEntry, "IOService", out deviceEntry);
+                }
+            }
+
+            if (deviceEntry == 0)
+            {
+                throw new Exception("Failed retrieving USB Device");
+            }
+
+            var err = NativeMethods.IOCreatePlugInInterfaceForService(deviceEntry,
+                NativeMethods.kIOUSBDeviceUserClientTypeID, NativeMethods.kIOCFPluginInterfaceID,
+                out var pluginInterface, out var score);
+
+            if (err != NativeMethods.IOReturn.Success)
+            {
+                throw new Exception($"Plugin Interface creation failed. 0x{err:X}");
+            }
+            
+            (*pluginInterface)->QueryInterface(pluginInterface, NativeMethods.CFUUIDGetUUIDBytes(kIOUSBDeviceInterfaceID), out var usbDevPtr);
+            (*pluginInterface)->Release(pluginInterface);
+
+            if (usbDevPtr != null)
+            {
+                var usbDev = (NativeMethods.IOUSBDeviceStruct182**)usbDevPtr;
+                err = (*usbDev)->USBDeviceOpen(usbDev);
+                if (err != NativeMethods.IOReturn.Success)
+                {
+                    (*usbDev)->Release(usbDev);
+                    throw new DeviceIOException(this, $"Failed to open USB device: 0x{err:X}");
+                }
+
+                fixed (char* sbuf = new char[255])
+                {
+                    setup.pData = sbuf;
+                    err = (*usbDev)->DeviceRequest(usbDev, &setup);
+                    if (err != NativeMethods.IOReturn.Success)
+                    {
+                        closeDev(usbDev);
+                        throw new DeviceIOException(this, $"DeviceRequest failed: 0x{err:X}");
+                    }
+
+                    var buf = (byte*)setup.pData;
+                    ushort langId = (ushort)(buf[2] | buf[3] << 8);
+
+                    for (int i = 0; i < 255; i++)
+                    {
+                        buf[i] = 0;
+                    }
+
+                    // Retrieve string
+                    setup.wIndex = langId;
+                    setup.wValue = stringIndex((byte)index);
+
+                    (*usbDev)->DeviceRequest(usbDev, &setup);
+                    if (err != NativeMethods.IOReturn.Success)
+                    {
+                        closeDev(usbDev);
+                        throw new DeviceIOException(this, $"DeviceRequest failed: 0x{err:X}");
+                    }
+
+                    var deviceString = new StringBuilder(255);
+                    var ssbuf = (char*)setup.pData;
+                    for (int i = 1; i < 255; i++)
+                    {
+                        var c = ssbuf[i];
+                        if (c == 0)
+                            break;
+                        else
+                            deviceString.Append(c);
+                    }
+                    closeDev(usbDev);
+                    return deviceString.ToString();
+                }
+            }
+            else
+            {
+                throw new DeviceIOException(this, $"USB Device interface retrieval failed");
+            }
         }
 
         public override bool HasImplementationDetail(Guid detail)
