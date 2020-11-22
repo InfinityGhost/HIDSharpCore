@@ -19,6 +19,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -43,6 +44,7 @@ namespace HidSharp.Platform.Windows
         string _serialNumber;
         int _vid, _pid, _version;
         int _maxInput, _maxOutput, _maxFeature;
+        bool _canOpen;
         byte[] _reportDescriptor;
 
         WinHidDevice()
@@ -120,6 +122,11 @@ namespace HidSharp.Platform.Windows
                                 _maxInput = caps.InputReportByteLength;
                                 _maxOutput = caps.OutputReportByteLength;
                                 _maxFeature = caps.FeatureReportByteLength;
+
+                                if (caps.UsagePage == 1)
+                                    _canOpen = !NativeMethods.RestrictedHIDUsage.Contains(caps.Usage);
+                                else
+                                    _canOpen = true;
 
                                 try { _reportDescriptor = new ReportDescriptorReconstructor().Run(preparsed, caps); }
                                 catch (NotImplementedException) { _reportDescriptor = null; }
@@ -333,6 +340,15 @@ namespace HidSharp.Platform.Windows
         public override int ProductID
         {
             get { return _pid; }
+        }
+
+        public override bool CanOpen
+        {
+            get
+            {
+                RequiresGetInfo(GetInfoFlags.ReportInfo);
+                return _canOpen;
+            }
         }
 
         public override int ReleaseNumberBcd

@@ -18,6 +18,8 @@
 #pragma warning disable 169, 649
 
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
@@ -870,6 +872,8 @@ namespace HidSharp.Platform.Windows
             Unknown1         = 0x1000000, // ???
             Unknown2         = 0x2000000  // ???
         }
+
+        public static int[] RestrictedHIDUsage = new int[] { 1, 2, 6, 7 };
 
         public static IntPtr CreateAutoResetEventOrThrow()
         {

@@ -325,6 +325,8 @@ namespace HidSharp.Platform.Linux
             get { return _version; }
         }
 
+        public override bool CanOpen => true;
+
         internal bool ReportsUseID
         {
             get { return _reportsUseID; }

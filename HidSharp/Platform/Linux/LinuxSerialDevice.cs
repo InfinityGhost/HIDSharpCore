@@ -47,5 +47,7 @@ namespace HidSharp.Platform.Linux
         {
             get { return _portName; }
         }
+
+        public override bool CanOpen => true;
     }
 }

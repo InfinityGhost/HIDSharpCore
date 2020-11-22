@@ -206,5 +206,7 @@ namespace HidSharp.Platform.Windows
         {
             get { return _path; }
         }
+
+        public override bool CanOpen => true;
     }
 }
