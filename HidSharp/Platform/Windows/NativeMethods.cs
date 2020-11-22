@@ -873,7 +873,11 @@ namespace HidSharp.Platform.Windows
             Unknown2         = 0x2000000  // ???
         }
 
-        public static int[] RestrictedHIDUsage = new int[] { 1, 2, 6, 7 };
+        public static Dictionary<int, List<int>> RestrictedHIDs = new Dictionary<int, List<int>>
+        {
+            [0x01] = { 1, 2, 6, 7 },
+            [0x0D] = { 1, 2, 4, 5 }
+        };
 
         public static IntPtr CreateAutoResetEventOrThrow()
         {
