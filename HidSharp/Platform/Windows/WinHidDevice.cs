@@ -123,7 +123,7 @@ namespace HidSharp.Platform.Windows
                                 _maxOutput = caps.OutputReportByteLength;
                                 _maxFeature = caps.FeatureReportByteLength;
 
-                                _canOpen = !NativeMethods.RestrictedHIDs.ContainsKey(caps.UsagePage) || NativeMethods.RestrictedHIDs[caps.UsagePage].Contains(caps.Usage);
+                                _canOpen = !(NativeMethods.RestrictedHIDs.ContainsKey(caps.UsagePage) && NativeMethods.RestrictedHIDs[caps.UsagePage].Contains(caps.Usage));
 
                                 try { _reportDescriptor = new ReportDescriptorReconstructor().Run(preparsed, caps); }
                                 catch (NotImplementedException) { _reportDescriptor = null; }
