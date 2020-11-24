@@ -873,6 +873,8 @@ namespace HidSharp.Platform.Windows
             Unknown2         = 0x2000000  // ???
         }
 
+        // Reference:
+        //   https://docs.microsoft.com/en-us/windows-hardware/drivers/hid/hid-architecture#hid-clients-supported-in-windows
         public static Dictionary<int, List<int>> RestrictedHIDs = new Dictionary<int, List<int>>()
         {
             { 0x01, new List<int>() { 1, 2, 6, 7 } },
