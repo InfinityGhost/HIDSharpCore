@@ -18,6 +18,8 @@
 #pragma warning disable 169, 649
 
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
@@ -870,6 +872,14 @@ namespace HidSharp.Platform.Windows
             Unknown1         = 0x1000000, // ???
             Unknown2         = 0x2000000  // ???
         }
+
+        // Reference:
+        //   https://docs.microsoft.com/en-us/windows-hardware/drivers/hid/hid-architecture#hid-clients-supported-in-windows
+        public static Dictionary<int, List<int>> RestrictedHIDs = new Dictionary<int, List<int>>()
+        {
+            { 0x01, new List<int>() { 1, 2, 6, 7 } },
+            { 0x0D, new List<int>() { 1, 2, 4, 5 } }
+        };
 
         public static IntPtr CreateAutoResetEventOrThrow()
         {

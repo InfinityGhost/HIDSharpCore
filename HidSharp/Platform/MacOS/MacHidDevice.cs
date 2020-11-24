@@ -316,6 +316,8 @@ namespace HidSharp.Platform.MacOS
             get { return _version; }
         }
 
+        public override bool CanOpen => true;
+
         internal bool ReportsUseID
         {
             get { return _reportsUseID; }

@@ -59,5 +59,7 @@ namespace HidSharp.Platform.MacOS
         {
             get { return _path.ToString(); }
         }
+
+        public override bool CanOpen => true;
     }
 }

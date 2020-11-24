@@ -143,5 +143,7 @@ namespace HidSharp
         {
             get;
         }
+
+        public abstract bool CanOpen { get; }
     }
 }
