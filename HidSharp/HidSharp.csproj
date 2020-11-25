@@ -1,7 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net5</TargetFramework>
+    <TargetFrameworks>net5;netcoreapp3.1;netstandard2.1</TargetFrameworks>
+    <!--<TargetFramework>netstandard2.1</TargetFramework>-->
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <AssemblyName>HidSharpCore</AssemblyName>
@@ -12,7 +13,7 @@
   <PropertyGroup>
     <PackageId>HidSharpCore</PackageId>
     <PackageOutputPath>./nupkg</PackageOutputPath>
-    <Version>1.1.0</Version>
+    <Version>1.1.1</Version>
     <Authors>James F. Bellinger; InfinityGhost</Authors>
     <Copyright>Copyright 2010-2019 James Bellinger</Copyright>
   </PropertyGroup>
