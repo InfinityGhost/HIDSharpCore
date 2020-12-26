@@ -878,7 +878,7 @@ namespace HidSharp.Platform.Windows
         public static Dictionary<int, List<int>> RestrictedHIDs = new Dictionary<int, List<int>>()
         {
             { 0x01, new List<int>() { 1, 2, 6, 7 } },
-            { 0x0D, new List<int>() { 1, 2, 4, 5 } }
+            { 0x0D, new List<int>() { 2, 4, 5 } }
         };
 
         public static IntPtr CreateAutoResetEventOrThrow()
