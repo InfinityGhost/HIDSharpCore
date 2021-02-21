@@ -143,7 +143,8 @@ namespace HidSharp.Platform.MacOS
 
         public enum IOOptionBits
         {
-            None = 0
+            None = 0,
+            SeizeDevice = 1
         }
 
         public enum IOHIDElementType

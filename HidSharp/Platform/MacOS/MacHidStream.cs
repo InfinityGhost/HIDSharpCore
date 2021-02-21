@@ -44,7 +44,7 @@ namespace HidSharp.Platform.MacOS
             _writeThread = new Thread(WriteThread) { IsBackground = true, Name = "HID Writer" };
         }
 		
-		internal void Init(NativeMethods.io_string_t path)
+		internal void Init(NativeMethods.io_string_t path, OpenConfiguration openConfig)
 		{
             IntPtr handle; int retryCount = 0, maxRetries = 10;
             while (true)
@@ -59,7 +59,12 @@ namespace HidSharp.Platform.MacOS
                         handle = NativeMethods.IOHIDDeviceCreate(IntPtr.Zero, service);
                         if (handle != IntPtr.Zero)
                         {
-                            var ret = NativeMethods.IOHIDDeviceOpen(handle);
+                            NativeMethods.IOReturn ret;
+                            if ((bool)openConfig.GetOption(OpenOption.DeviceExclusive))
+                                ret = NativeMethods.IOHIDDeviceOpen(handle, NativeMethods.IOOptionBits.SeizeDevice);
+                            else
+                                ret = NativeMethods.IOHIDDeviceOpen(handle, NativeMethods.IOOptionBits.None);
+
                             if (ret == NativeMethods.IOReturn.Success) { break; }
 
                             NativeMethods.CFRelease(handle);
