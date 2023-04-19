@@ -3,10 +3,11 @@
   <PropertyGroup>
     <TargetFrameworks>net6.0;netstandard2.0</TargetFrameworks>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <AssemblyName>HidSharpCore</AssemblyName>
     <RootNamespace>HidSharp</RootNamespace>
-    <LangVersion>preview</LangVersion>
+    <Company>"Illusory Studios LLC"</Company>
+    <Description>C# HID wrappers</Description>
+    <LangVersion Condition=" '$(TargetFramework)' == 'netstandard2.0'">10.0</LangVersion>
   </PropertyGroup>
   
   <PropertyGroup>
@@ -15,6 +16,7 @@
     <Version>1.3.0</Version>
     <Authors>James F. Bellinger; InfinityGhost</Authors>
     <Copyright>Copyright 2010-2019 James Bellinger</Copyright>
+    <PackageProjectUrl>https://github.com/InfinityGhost/HIDSharpCore</PackageProjectUrl>
   </PropertyGroup>
 
 </Project>
