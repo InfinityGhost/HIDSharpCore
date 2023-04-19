@@ -109,7 +109,7 @@ namespace HidSharp.Platform
                     {
                         if (queue.Count == 0)
                         {
-                            byte[] packet = new byte[count];
+                            byte[] packet = new byte[maxOutputReportLength];
                             Array.Copy(buffer, offset, packet, 0, count);
                             var outputReport = new CommonOutputReport() { Bytes = packet, Feature = feature };
                             queue.Enqueue(outputReport);
