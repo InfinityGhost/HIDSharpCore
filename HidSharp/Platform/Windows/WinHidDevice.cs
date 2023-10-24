@@ -324,6 +324,22 @@ namespace HidSharp.Platform.Windows
             return base.HasImplementationDetail(detail) || detail == ImplementationDetail.Windows;
         }
 
+        public override bool IsSibling(HidDevice device)
+        {
+            if (device is not WinHidDevice winDevice)
+            {
+                return false;
+            }
+
+            if (!TryGetDeviceUsbRoot(out uint devInst1)
+                || !winDevice.TryGetDeviceUsbRoot(out uint devInst2))
+            {
+                return false;
+            }
+
+            return devInst1 == devInst2;
+        }
+
         public override string DevicePath
         {
             get { return _path; }

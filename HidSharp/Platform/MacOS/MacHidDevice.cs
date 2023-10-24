@@ -195,30 +195,7 @@ namespace HidSharp.Platform.MacOS
                 wLength = 255
             };
 
-            int kernRet = NativeMethods.IOMasterPort(0, out uint masterPort);
-            if (kernRet != 0)
-            {
-                throw new Exception($"Failed to get IOMasterPort: {kernRet:X}");
-            }
-
-            // Determine USB device from HID path
-            var hidEntry = NativeMethods.IORegistryEntryFromPath(masterPort, ref _path).ToIOObject();
-            int deviceEntry = 0;
-            IntPtr kIOUSBDeviceInterfaceID = NativeMethods.kIOUSBDeviceInterfaceID;
-
-            if (hidEntry.IsSet)
-            {
-                NativeMethods.IORegistryEntryGetParentEntry(hidEntry, "IOService", out var interfaceEntry);
-                if (interfaceEntry != 0)
-                {
-                    NativeMethods.IORegistryEntryGetParentEntry(interfaceEntry, "IOService", out deviceEntry);
-                }
-            }
-
-            if (deviceEntry == 0)
-            {
-                throw new Exception("Failed retrieving USB Device");
-            }
+            int deviceEntry = GetUsbDeviceId();
 
             var err = NativeMethods.IOCreatePlugInInterfaceForService(deviceEntry,
                 NativeMethods.kIOUSBDeviceUserClientTypeID, NativeMethods.kIOCFPluginInterfaceID,
@@ -228,7 +205,8 @@ namespace HidSharp.Platform.MacOS
             {
                 throw new Exception($"Plugin Interface creation failed. 0x{err:X}");
             }
-            
+
+            IntPtr kIOUSBDeviceInterfaceID = NativeMethods.kIOUSBDeviceInterfaceID;
             (*pluginInterface)->QueryInterface(pluginInterface, NativeMethods.CFUUIDGetUUIDBytes(kIOUSBDeviceInterfaceID), out var usbDevPtr);
             (*pluginInterface)->Release(pluginInterface);
 
@@ -294,6 +272,43 @@ namespace HidSharp.Platform.MacOS
         public override bool HasImplementationDetail(Guid detail)
         {
             return base.HasImplementationDetail(detail) || detail == ImplementationDetail.MacOS;
+        }
+
+        public override bool IsSibling(HidDevice device)
+        {
+            if (device is not MacHidDevice macDevice) { return false; }
+
+            // Check if the devices are siblings by comparing their UsbDeviceIds
+            return GetUsbDeviceId() == macDevice.GetUsbDeviceId();
+        }
+
+        int GetUsbDeviceId()
+        {
+            int kernRet = NativeMethods.IOMasterPort(0, out uint masterPort);
+            if (kernRet != 0)
+            {
+                throw new Exception($"Failed to get IOMasterPort: {kernRet:X}");
+            }
+
+            // Determine USB device from HID path
+            var hidEntry = NativeMethods.IORegistryEntryFromPath(masterPort, ref _path).ToIOObject();
+            int deviceEntry = 0;
+
+            if (hidEntry.IsSet)
+            {
+                NativeMethods.IORegistryEntryGetParentEntry(hidEntry, "IOService", out var interfaceEntry);
+                if (interfaceEntry != 0)
+                {
+                    NativeMethods.IORegistryEntryGetParentEntry(interfaceEntry, "IOService", out deviceEntry);
+                }
+            }
+
+            if (deviceEntry == 0)
+            {
+                throw new Exception("Failed retrieving USB Device");
+            }
+
+            return deviceEntry;
         }
 
         public override string DevicePath

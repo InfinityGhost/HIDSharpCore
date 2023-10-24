@@ -151,6 +151,13 @@ namespace HidSharp
         }
 
         /// <summary>
+        /// Determines if the given device and this device are of the same USB device.
+        /// </summary>
+        /// <param name="device">The device to compare with this device.</param>
+        /// <returns>Returns true if the given device and this device are of the same USB device.</returns>
+        public abstract bool IsSibling(HidDevice device);
+
+        /// <summary>
         /// The USB product ID. These are listed at: http://usb-ids.gowdy.us
         /// </summary>
         public abstract int ProductID
