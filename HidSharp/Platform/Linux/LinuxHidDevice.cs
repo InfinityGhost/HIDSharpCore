@@ -306,7 +306,14 @@ namespace HidSharp.Platform.Linux
         {
             if (device is not LinuxHidDevice linuxDevice) { return false; }
 
-            return GetUsbPath() == linuxDevice.GetUsbPath();
+            try
+            {
+                return GetUsbPath() == linuxDevice.GetUsbPath();
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         public override string DevicePath

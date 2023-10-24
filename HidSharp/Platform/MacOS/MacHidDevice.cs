@@ -278,8 +278,14 @@ namespace HidSharp.Platform.MacOS
         {
             if (device is not MacHidDevice macDevice) { return false; }
 
-            // Check if the devices are siblings by comparing their UsbDeviceIds
-            return GetUsbDeviceId() == macDevice.GetUsbDeviceId();
+            try
+            {
+                return GetUsbDeviceId() == macDevice.GetUsbDeviceId();
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         int GetUsbDeviceId()

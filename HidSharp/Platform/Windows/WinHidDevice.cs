@@ -331,13 +331,20 @@ namespace HidSharp.Platform.Windows
                 return false;
             }
 
-            if (!TryGetDeviceUsbRoot(out uint devInst1)
-                || !winDevice.TryGetDeviceUsbRoot(out uint devInst2))
+            try
+            {
+                if (!TryGetDeviceUsbRoot(out uint devInst1)
+                    || !winDevice.TryGetDeviceUsbRoot(out uint devInst2))
+                {
+                    return false;
+                }
+
+                return devInst1 == devInst2;
+            }
+            catch
             {
                 return false;
             }
-
-            return devInst1 == devInst2;
         }
 
         public override string DevicePath
