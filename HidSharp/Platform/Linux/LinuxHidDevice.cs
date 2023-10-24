@@ -184,33 +184,38 @@ namespace HidSharp.Platform.Linux
 
                 // Send packet
                 int usbHandle = open(usbPath, oflag.NONBLOCK | oflag.RDWR);
-                if (ioctl(usbHandle, USBDEVFS_CONTROL, ref setup) < 0)
+
+                try
+                {
+                    if (ioctl(usbHandle, USBDEVFS_CONTROL, ref setup) < 0)
+                    {
+                        close(usbHandle);
+                        var err = (error)Marshal.GetLastWin32Error();
+                        throw new DeviceIOException(this, $"Unable to retrieve device's supported langId: {err}");
+                    }
+
+                    // Retrieve langId
+                    var buf = (byte*)setup.data;
+                    ushort langId = (ushort)(buf[2] | buf[3] << 8);
+
+                    for (int i = 0; i < 255; i++)
+                    {
+                        buf[i] = 0;
+                    }
+
+                    // Retrieve string
+                    setup.wIndex = langId;
+                    setup.wValue = string_index((byte)index);
+                    if (ioctl(usbHandle, USBDEVFS_CONTROL, ref setup) < 0)
+                    {
+                        var err = (error)Marshal.GetLastWin32Error();
+                        throw new DeviceIOException(this, $"Unable to retrieve device string at index {index}: {err}");
+                    }
+                }
+                finally
                 {
                     close(usbHandle);
-                    var err = (error)Marshal.GetLastWin32Error();
-                    throw new DeviceIOException(this, $"Unable to retrieve device's supported langId: {err}");
                 }
-
-                // Retrieve langId
-                var buf = (byte*)setup.data;
-                ushort langId = (ushort)(buf[2] | buf[3] << 8);
-
-                for (int i = 0; i < 255; i++)
-                {
-                    buf[i] = 0;
-                }
-
-                // Retrieve string
-                setup.wIndex = langId;
-                setup.wValue = string_index((byte)index);
-                if (ioctl(usbHandle, USBDEVFS_CONTROL, ref setup) < 0)
-                {
-                    close(usbHandle);
-                    var err = (error)Marshal.GetLastWin32Error();
-                    throw new DeviceIOException(this, $"Unable to retrieve device string at index {index}: {err}");
-                }
-
-                close(usbHandle);
 
                 var deviceString = new StringBuilder(255);
                 var ssbuf = (char*)setup.data;
