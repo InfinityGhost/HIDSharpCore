@@ -176,26 +176,17 @@ namespace HidSharp.Platform.Linux
                 wLength = 255
             };
 
-            string usbPath;
+            string usbPath = GetUsbPath();
 
-            IntPtr udev = NativeMethodsLibudev.Instance.udev_new();
-            var handle = NativeMethodsLibudev.Instance.udev_device_new_from_syspath(udev, _path);
-
-            IntPtr parent = NativeMethodsLibudev.Instance.udev_device_get_parent_with_subsystem_devtype(handle, "usb", "usb_device");
-
-            string devNum = NativeMethodsLibudev.Instance.udev_device_get_sysattr_value(parent, "devnum");
-            string busNum = NativeMethodsLibudev.Instance.udev_device_get_sysattr_value(parent, "busnum");
-
-            usbPath = $"/dev/bus/usb/{int.Parse(busNum):D3}/{int.Parse(devNum):D3}";
-
-            try
+            fixed (char* sbuf = new char[255])
             {
-                fixed (char* sbuf = new char[255])
-                {
-                    setup.data = sbuf;
+                setup.data = sbuf;
 
-                    // Send packet
-                    int usbHandle = open(usbPath, oflag.NONBLOCK | oflag.RDWR);
+                // Send packet
+                int usbHandle = open(usbPath, oflag.NONBLOCK | oflag.RDWR);
+
+                try
+                {
                     if (ioctl(usbHandle, USBDEVFS_CONTROL, ref setup) < 0)
                     {
                         close(usbHandle);
@@ -217,34 +208,26 @@ namespace HidSharp.Platform.Linux
                     setup.wValue = string_index((byte)index);
                     if (ioctl(usbHandle, USBDEVFS_CONTROL, ref setup) < 0)
                     {
-                        close(usbHandle);
                         var err = (error)Marshal.GetLastWin32Error();
                         throw new DeviceIOException(this, $"Unable to retrieve device string at index {index}: {err}");
                     }
-
-                    close(usbHandle);
-
-                    var deviceString = new StringBuilder(255);
-                    var ssbuf = (char*)setup.data;
-                    for (int i = 1; i < 255; i++)
-                    {
-                        var c = ssbuf[i];
-                        if (c == 0)
-                            break;
-                        else
-                            deviceString.Append(c);
-                    }
-                    return deviceString.ToString();
                 }
-            }
-            catch
-            {
-                throw;
-            }
-            finally
-            {
-                NativeMethodsLibudev.Instance.udev_device_unref(parent);
-                NativeMethodsLibudev.Instance.udev_unref(udev);
+                finally
+                {
+                    close(usbHandle);
+                }
+
+                var deviceString = new StringBuilder(255);
+                var ssbuf = (char*)setup.data;
+                for (int i = 1; i < 255; i++)
+                {
+                    var c = ssbuf[i];
+                    if (c == 0)
+                        break;
+                    else
+                        deviceString.Append(c);
+                }
+                return deviceString.ToString();
             }
         }
 
@@ -295,6 +278,20 @@ namespace HidSharp.Platform.Linux
             }
         }
 
+        unsafe string GetUsbPath()
+        {
+            using (var udev = new SafeUdevHandle(NativeMethodsLibudev.Instance.udev_new()))
+            using (var handle = new SafeUdevDeviceHandle(NativeMethodsLibudev.Instance.udev_device_new_from_syspath(udev.DangerousGetHandle(), _path)))
+            using (var parent = new SafeUdevDeviceHandle(NativeMethodsLibudev.Instance.udev_device_get_parent_with_subsystem_devtype(handle.DangerousGetHandle(), "usb", "usb_device")))
+            {
+                var parentPtr = parent.DangerousGetHandle();
+                string devNum = NativeMethodsLibudev.Instance.udev_device_get_sysattr_value(parentPtr, "devnum");
+                string busNum = NativeMethodsLibudev.Instance.udev_device_get_sysattr_value(parentPtr, "busnum");
+
+                return $"/dev/bus/usb/{int.Parse(busNum):D3}/{int.Parse(devNum):D3}";
+            }
+        }
+
         public override string GetFileSystemName()
         {
             return _fileSystemName;
@@ -303,6 +300,20 @@ namespace HidSharp.Platform.Linux
         public override bool HasImplementationDetail(Guid detail)
         {
             return base.HasImplementationDetail(detail) || detail == ImplementationDetail.Linux || detail == ImplementationDetail.HidrawApi;
+        }
+
+        public override bool IsSibling(HidDevice device)
+        {
+            if (device is not LinuxHidDevice linuxDevice) { return false; }
+
+            try
+            {
+                return GetUsbPath() == linuxDevice.GetUsbPath();
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         public override string DevicePath
