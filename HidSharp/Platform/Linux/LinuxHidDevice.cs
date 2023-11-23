@@ -281,14 +281,17 @@ namespace HidSharp.Platform.Linux
         unsafe string GetUsbPath()
         {
             using (var udev = new SafeUdevHandle(NativeMethodsLibudev.Instance.udev_new()))
-            using (var handle = new SafeUdevDeviceHandle(NativeMethodsLibudev.Instance.udev_device_new_from_syspath(udev.DangerousGetHandle(), _path)))
-            using (var parent = new SafeUdevDeviceHandle(NativeMethodsLibudev.Instance.udev_device_get_parent_with_subsystem_devtype(handle.DangerousGetHandle(), "usb", "usb_device")))
             {
-                var parentPtr = parent.DangerousGetHandle();
-                string devNum = NativeMethodsLibudev.Instance.udev_device_get_sysattr_value(parentPtr, "devnum");
-                string busNum = NativeMethodsLibudev.Instance.udev_device_get_sysattr_value(parentPtr, "busnum");
+                var handle = NativeMethodsLibudev.Instance.udev_device_new_from_syspath(udev.DangerousGetHandle(), _path);
+                using (var parent = new SafeUdevDeviceHandle(NativeMethodsLibudev.Instance.udev_device_get_parent_with_subsystem_devtype(handle, "usb", "usb_device")))
+                {
+                    var parentPtr = parent.DangerousGetHandle();
 
-                return $"/dev/bus/usb/{int.Parse(busNum):D3}/{int.Parse(devNum):D3}";
+                    string devNum = NativeMethodsLibudev.Instance.udev_device_get_sysattr_value(parentPtr, "devnum");
+                    string busNum = NativeMethodsLibudev.Instance.udev_device_get_sysattr_value(parentPtr, "busnum");
+
+                    return $"/dev/bus/usb/{int.Parse(busNum):D3}/{int.Parse(devNum):D3}";
+                }
             }
         }
 
