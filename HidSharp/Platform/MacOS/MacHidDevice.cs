@@ -127,7 +127,7 @@ namespace HidSharp.Platform.MacOS
         protected override DeviceStream OpenDeviceDirectly(OpenConfiguration openConfig)
         {
             var stream = new MacHidStream(this);
-            try { stream.Init(_path); return stream; }
+            try { stream.Init(_path, openConfig); return stream; }
             catch { stream.Close(); throw; }
         }
 

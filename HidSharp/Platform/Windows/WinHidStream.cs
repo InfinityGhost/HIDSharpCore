@@ -40,9 +40,13 @@ namespace HidSharp.Platform.Windows
             NativeMethods.CloseHandle(_closeEventHandle);
         }
 
-        internal void Init(string path)
+        internal void Init(string path, OpenConfiguration openConfig)
         {
-            IntPtr handle = NativeMethods.CreateFileFromDevice(path, NativeMethods.EFileAccess.Read | NativeMethods.EFileAccess.Write, NativeMethods.EFileShare.Read | NativeMethods.EFileShare.Write);
+            IntPtr handle;
+            if ((bool)openConfig.GetOption(OpenOption.DeviceExclusive))
+                handle = NativeMethods.CreateFileFromDevice(path, NativeMethods.EFileAccess.Read | NativeMethods.EFileAccess.Write, NativeMethods.EFileShare.None);
+            else
+                handle = NativeMethods.CreateFileFromDevice(path, NativeMethods.EFileAccess.Read | NativeMethods.EFileAccess.Write, NativeMethods.EFileShare.Read | NativeMethods.EFileShare.Write);
             if (handle == (IntPtr)(-1))
             {
                 throw DeviceException.CreateIOException(Device, "Unable to open HID class device (" + path + ").");

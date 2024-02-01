@@ -40,6 +40,8 @@ namespace HidSharp
         /// </summary>
         public static OpenOption Exclusive { get; private set; }
 
+        public static OpenOption DeviceExclusive { get; private set; }
+
         /// <summary>
         /// Allow other processes to send interruption requests.
         /// If another other process with higher priority attempts to open the HID device this process is using,
@@ -86,6 +88,11 @@ namespace HidSharp
         {
             _options = new Dictionary<Guid, OpenOption>();
 
+            DeviceExclusive = OpenOption.New(new Guid("{79F41C23-C92C-47C7-8F8C-152127EF9822}"),
+                                             deserializeCallback: DeserializeBoolean,
+                                             serializeCallback: SerializeBoolean,
+                                             defaultValue: false,
+                                             friendlyName: "DeviceExclusive");
             Exclusive = OpenOption.New(new Guid("{49DB23CD-727E-4788-BBAD-7D67ACCBC469}"),
                                        deserializeCallback: DeserializeBoolean,
                                        serializeCallback: SerializeBoolean,

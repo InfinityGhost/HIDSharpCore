@@ -113,7 +113,7 @@ namespace HidSharp.Platform.Linux
             RequiresGetInfo();
 
             var stream = new LinuxHidStream(this);
-            try { stream.Init(_path); return stream; }
+            try { stream.Init(_path, openConfig); return stream; }
             catch { stream.Close(); throw; }
         }
 
